@@ -257,8 +257,9 @@ void loop() {
     M5.Display.setTextDatum(middle_center);
     M5.Display.setTextSize(2);
     M5.Display.drawString("Spegnimento", 120, 67);
+    logger.mark("POWEROFF");
     delay(600);
-    M5.Power.powerOff();
+    M5.Power.powerOff();  // comando di shutdown al PMIC M5PM1: spegne anche con l'USB collegato
   }
 
   ImuSample s;
