@@ -15,8 +15,17 @@ class Imu {
   uint32_t droppedSamples() const;
 
  private:
+  // I campioni arrivano dalla FIFO del BMI270 (frame da 12 byte: gyr poi acc), letti a blocchi.
+  static constexpr int FRAME_BYTES = 12;
+  static constexpr int BUF_FRAMES = 16;
+
+  bool fillFromFifo();
+
   uint8_t addr_ = 0;       // indirizzo I2C del BMI270 (0x68 o 0x69)
-  uint32_t lastT_us_ = 0;  // timestamp dell'ultimo campione letto
+  uint8_t buf_[BUF_FRAMES * FRAME_BYTES];
+  int bufFrames_ = 0, bufPos_ = 0;
+  uint32_t t0_us_ = 0;     // istante del primo campione
+  uint32_t count_ = 0;     // campioni emessi (o persi) da t0: il timestamp e' t0 + count * periodo
   mutable uint32_t dropped_ = 0;
 };
 

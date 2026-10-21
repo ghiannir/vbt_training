@@ -1,47 +1,44 @@
-// Passo 2: valori grezzi di accelerometro e giroscopio sullo schermo e sulla seriale.
+// Passo 3: log dei dati grezzi su USB per tarare l'algoritmo sul PC (FW-27).
+// Tasto A (frontale): inizio/fine serie. Tasto B (laterale): segna un evento (#NOTE).
+// Sul PC: uv run --with pyserial tools/record.py
 #include <M5Unified.h>
 #include <math.h>
 
 #include "imu.h"
+#include "logger.h"
 
 static Imu imu;
+static RawLogger logger;
 static ImuSample last;
-static uint32_t samples = 0;  // campioni letti nell'ultimo secondo
-static uint32_t dropped = 0;
+static bool inSet = false;
+static uint32_t setCount = 0, notes = 0;
+static uint32_t samples = 0, dropped = 0;
 static float rateHz = 0;
 
-static void drawStatic() {
-  M5.Display.fillScreen(TFT_BLACK);
+static void draw() {
   M5.Display.setTextDatum(top_left);
-  M5.Display.setTextSize(2);
-  M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  M5.Display.drawString("acc g", 4, 2);
-  M5.Display.drawString("gyro dps", 124, 2);
-}
+  M5.Display.setTextSize(3);
+  M5.Display.setTextColor(inSet ? TFT_BLACK : TFT_WHITE, inSet ? TFT_GREEN : TFT_BLACK);
+  M5.Display.fillRect(0, 0, 240, 34, inSet ? TFT_GREEN : TFT_BLACK);
+  M5.Display.setCursor(6, 6);
+  M5.Display.printf(inSet ? "SERIE %lu" : "PRONTO", (unsigned long)setCount);
 
-static void drawValues() {
   M5.Display.setTextSize(2);
-  const char* axes = "xyz";
-  const float acc[3] = {last.acc.x, last.acc.y, last.acc.z};
-  const float gyr[3] = {last.gyro.x, last.gyro.y, last.gyro.z};
-  for (int i = 0; i < 3; i++) {
-    int y = 24 + i * 22;
-    M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-    M5.Display.setCursor(4, y);
-    M5.Display.printf("%c%+6.2f ", axes[i], acc[i]);
-    M5.Display.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Display.setCursor(124, y);
-    M5.Display.printf("%c%+6.0f ", axes[i], gyr[i]);
-  }
-  float norm = sqrtf(last.acc.x * last.acc.x + last.acc.y * last.acc.y + last.acc.z * last.acc.z);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setCursor(4, 94);
+  float norm = sqrtf(last.acc.x * last.acc.x + last.acc.y * last.acc.y + last.acc.z * last.acc.z);
+  M5.Display.setCursor(6, 46);
   M5.Display.printf("|a| %.3f g   ", norm);
+  M5.Display.setCursor(6, 70);
+  M5.Display.printf("note %lu   ", (unsigned long)notes);
+
   M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  M5.Display.setCursor(4, 122);
+  M5.Display.setTextColor(dropped ? TFT_RED : TFT_DARKGREY, TFT_BLACK);
+  M5.Display.setCursor(6, 100);
   M5.Display.printf("%.0f Hz  persi %lu  batt %d%%   ", rateHz, (unsigned long)dropped,
                     M5.Power.getBatteryLevel());
+  M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  M5.Display.setCursor(6, 118);
+  M5.Display.print("A: serie   B: nota");
 }
 
 void setup() {
@@ -49,6 +46,7 @@ void setup() {
   M5.begin();
   M5.Display.setBrightness(128);
   M5.Display.setRotation(1);  // orizzontale: 240x135
+  M5.Display.fillScreen(TFT_BLACK);
 
   if (!imu.begin()) {
     M5.Display.fillScreen(TFT_RED);
@@ -56,19 +54,29 @@ void setup() {
     M5.Display.setTextSize(2);
     M5.Display.setCursor(8, 50);
     M5.Display.print("IMU non risponde");
-    Serial.println("[vbt] IMU non risponde");
+    Serial.println("# IMU non risponde");
     while (true) delay(1000);
   }
-  Serial.println("[vbt] IMU ok: 400 Hz, +-16 g, +-2000 dps");
-  drawStatic();
+  logger.begin();
 }
 
 void loop() {
   static uint32_t lastDraw = 0, lastRate = 0;
   M5.update();
 
+  if (M5.BtnA.wasPressed()) {
+    inSet = !inSet;
+    if (inSet) setCount++;
+    logger.mark(inSet ? "SET_START" : "SET_STOP");
+  }
+  if (M5.BtnB.wasPressed()) {
+    notes++;
+    logger.mark("NOTE");
+  }
+
   ImuSample s;
-  if (imu.read(s)) {
+  while (imu.read(s)) {  // svuota tutto quello che la FIFO ha accumulato
+    logger.logSample(s);
     last = s;
     samples++;
   }
@@ -76,14 +84,12 @@ void loop() {
   uint32_t now = millis();
   if (now - lastRate >= 1000) {
     rateHz = samples * 1000.0f / (now - lastRate);
-    dropped = imu.droppedSamples();
+    dropped += imu.droppedSamples();
     samples = 0;
     lastRate = now;
   }
-  if (now - lastDraw >= 100) {  // schermo e seriale a 10 Hz
+  if (now - lastDraw >= 250) {
     lastDraw = now;
-    drawValues();
-    Serial.printf("acc %+.3f %+.3f %+.3f  gyro %+.1f %+.1f %+.1f  %.0f Hz\n", last.acc.x, last.acc.y,
-                  last.acc.z, last.gyro.x, last.gyro.y, last.gyro.z, rateHz);
+    draw();
   }
 }
