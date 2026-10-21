@@ -104,12 +104,38 @@ export const StopReason = Object.freeze({
  */
 
 /**
+ * @param {DataView} view
+ * @param {number} size
+ * @param {string} name
+ */
+function requireSize(view, size, name) {
+  if (!view || view.byteLength < size) {
+    throw new Error(`Payload ${name} troppo corto: ${view ? view.byteLength : 0} < ${size} byte`);
+  }
+}
+
+/**
  * Decode a Rep notification. Throws if the payload is shorter than SIZE.rep.
  * @param {DataView} view
  * @returns {Rep}
  */
 export function decodeRep(view) {
-  throw new Error("not implemented");
+  requireSize(view, SIZE.rep, "Rep");
+  const flags = view.getUint8(13);
+  return {
+    setId: view.getUint8(0),
+    repIndex: view.getUint8(1),
+    mcv: view.getUint16(2, true) / 1000,
+    peak: view.getUint16(4, true) / 1000,
+    rom: view.getUint16(6, true) / 1000,
+    concDuration: view.getUint16(8, true) / 1000,
+    repDuration: view.getUint16(10, true) / 1000,
+    velocityLossPct: view.getUint8(12),
+    thresholdExceeded: (flags & RepFlag.THRESHOLD_EXCEEDED) !== 0,
+    newBest: (flags & RepFlag.NEW_BEST) !== 0,
+    lowQuality: (flags & RepFlag.LOW_QUALITY) !== 0,
+    tMs: view.getUint32(14, true),
+  };
 }
 
 /**
@@ -117,7 +143,22 @@ export function decodeRep(view) {
  * @returns {DeviceStatus}
  */
 export function decodeStatus(view) {
-  throw new Error("not implemented");
+  requireSize(view, SIZE.status, "Status");
+  const flags = view.getUint8(3);
+  return {
+    protoVersion: view.getUint8(0),
+    state: view.getUint8(1),
+    batteryPct: view.getUint8(2),
+    charging: (flags & StatusFlag.CHARGING) !== 0,
+    beepOn: (flags & StatusFlag.BEEP_ON) !== 0,
+    calibrationValid: (flags & StatusFlag.CALIBRATION_VALID) !== 0,
+    setId: view.getUint8(4),
+    repCount: view.getUint8(5),
+    thresholdPct: view.getUint8(6),
+    errorCode: view.getUint8(7),
+    bestMcv: view.getUint16(8, true) / 1000,
+    lastVelocityLossPct: view.getUint8(10),
+  };
 }
 
 /**
@@ -125,7 +166,16 @@ export function decodeStatus(view) {
  * @returns {SetSummary}
  */
 export function decodeSetSummary(view) {
-  throw new Error("not implemented");
+  requireSize(view, SIZE.setSummary, "SetSummary");
+  return {
+    setId: view.getUint8(0),
+    repCount: view.getUint8(1),
+    stopReason: view.getUint8(2),
+    finalVelocityLossPct: view.getUint8(3),
+    bestMcv: view.getUint16(4, true) / 1000,
+    meanMcv: view.getUint16(6, true) / 1000,
+    durationS: view.getUint16(8, true),
+  };
 }
 
 /**
@@ -133,22 +183,26 @@ export function decodeSetSummary(view) {
  * @returns {LiveSample}
  */
 export function decodeLive(view) {
-  throw new Error("not implemented");
+  requireSize(view, SIZE.live, "Live");
+  return {
+    velocity: view.getInt16(0, true) / 1000,
+    displacement: view.getInt16(2, true) / 1000,
+  };
 }
 
 /** @returns {Uint8Array} */
 export function encodeStartSet() {
-  throw new Error("not implemented");
+  return Uint8Array.of(Opcode.START_SET);
 }
 
 /** @returns {Uint8Array} */
 export function encodeStopSet() {
-  throw new Error("not implemented");
+  return Uint8Array.of(Opcode.STOP_SET);
 }
 
 /** @returns {Uint8Array} */
 export function encodeTare() {
-  throw new Error("not implemented");
+  return Uint8Array.of(Opcode.TARE);
 }
 
 /**
@@ -156,7 +210,10 @@ export function encodeTare() {
  * @returns {Uint8Array}
  */
 export function encodeSetThreshold(pct) {
-  throw new Error("not implemented");
+  if (!Number.isInteger(pct) || (pct !== 0 && (pct < 5 || pct > 60))) {
+    throw new RangeError(`Soglia non valida: ${pct} (0 oppure 5..60)`);
+  }
+  return Uint8Array.of(Opcode.SET_THRESHOLD, pct);
 }
 
 /**
@@ -164,7 +221,7 @@ export function encodeSetThreshold(pct) {
  * @returns {Uint8Array}
  */
 export function encodeSetBeep(on) {
-  throw new Error("not implemented");
+  return Uint8Array.of(Opcode.SET_BEEP, on ? 1 : 0);
 }
 
 /**
@@ -173,10 +230,16 @@ export function encodeSetBeep(on) {
  * @returns {Uint8Array}
  */
 export function encodeRequestReps(setId, fromRep) {
-  throw new Error("not implemented");
+  if (!Number.isInteger(setId) || setId < 1 || setId > 255) {
+    throw new RangeError(`set_id non valido: ${setId}`);
+  }
+  if (!Number.isInteger(fromRep) || fromRep < 1 || fromRep > 255) {
+    throw new RangeError(`from_rep non valido: ${fromRep}`);
+  }
+  return Uint8Array.of(Opcode.REQUEST_REPS, setId, fromRep);
 }
 
 /** @returns {Uint8Array} */
 export function encodeRequestStatus() {
-  throw new Error("not implemented");
+  return Uint8Array.of(Opcode.REQUEST_STATUS);
 }

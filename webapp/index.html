@@ -4,71 +4,193 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>VBT Training</title>
-  <!-- Skeleton only: structure, no styling or logic yet. -->
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header id="statusbar">
-    <span id="conn-state">Disconnesso</span>
-    <span id="battery"></span>
-    <button id="btn-connect" type="button">Connetti</button>
+  <div id="flash" aria-hidden="true"></div>
+
+  <header id="statusbar" data-state="disconnected">
+    <div class="conn">
+      <span class="dot" aria-hidden="true"></span>
+      <div class="conn-text">
+        <span id="conn-state">Disconnesso</span>
+        <span id="conn-detail" class="muted"></span>
+      </div>
+    </div>
+    <span id="battery" class="battery" hidden></span>
+    <button id="btn-connect" type="button" class="btn btn-primary">Connetti</button>
   </header>
 
-  <p id="unsupported" hidden>Apri questa pagina in Bluefy per usare il Bluetooth.</p>
+  <div id="banners" role="status"></div>
 
   <main>
-    <section id="view-live">
-      <div id="live-mcv" aria-live="polite">--</div>
-      <div id="live-rep">Rep -</div>
-      <div id="live-loss">Perdita --%</div>
-      <div id="live-extra"></div>
-      <div class="controls">
-        <label>Esercizio <select id="exercise"></select></label>
-        <label>Carico (kg)
-          <button id="load-minus" type="button">-</button>
-          <output id="load">0</output>
-          <button id="load-plus" type="button">+</button>
-        </label>
-        <button id="btn-start" type="button">Avvia serie</button>
-        <button id="btn-stop" type="button">Termina serie</button>
-        <button id="btn-tare" type="button">Tara</button>
+    <!-- LIVE -->
+    <section id="view-live" class="view" data-level="idle">
+      <div class="live-head">
+        <span id="dev-state" class="chip">--</span>
+        <span id="set-info" class="muted"></span>
       </div>
-      <ol id="rep-list"></ol>
+
+      <div class="live-grid">
+        <div class="mcv-block">
+          <div id="live-mcv" class="mcv" aria-live="polite">--</div>
+          <div class="mcv-unit"><span>m/s</span><span id="live-rep">Rep -</span></div>
+        </div>
+
+        <div class="loss-block">
+          <div class="loss-row">
+            <span class="loss-label">Perdita</span>
+            <span id="live-loss" class="loss">--</span>
+          </div>
+          <div id="live-level" class="level-text">&nbsp;</div>
+          <div class="bar" aria-hidden="true">
+            <div id="loss-fill"></div>
+            <div id="loss-mark"></div>
+          </div>
+          <div class="bar-scale muted"><span>0%</span><span id="bar-thr">soglia 20%</span></div>
+          <div id="live-extra" class="extra">
+            <span><b id="x-peak">--</b> picco m/s</span>
+            <span><b id="x-rom">--</b> ROM cm</span>
+            <span><b id="x-dur">--</b> durata s</span>
+          </div>
+          <div id="live-note" class="muted"></div>
+        </div>
+      </div>
+
+      <div class="setup card">
+        <label class="field">
+          <span>Esercizio</span>
+          <select id="exercise"></select>
+        </label>
+        <div class="field">
+          <span>Carico (kg)</span>
+          <div class="stepper">
+            <button id="load-minus" type="button" class="btn btn-step" aria-label="Meno carico">&minus;</button>
+            <input id="load" type="number" inputmode="decimal" min="0" max="500" step="0.5" value="0" aria-label="Carico in kg">
+            <button id="load-plus" type="button" class="btn btn-step" aria-label="Piu carico">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-set" type="button" class="btn btn-go" disabled>Avvia serie</button>
+        <button id="btn-tare" type="button" class="btn btn-secondary" disabled>Tara</button>
+      </div>
+
+      <h2 class="list-title">Ripetizioni <span id="list-count" class="muted"></span></h2>
+      <ol id="rep-list" class="rep-list"></ol>
     </section>
 
-    <section id="view-history" hidden>
-      <ul id="history-list"></ul>
-      <button id="btn-export-json" type="button">Esporta JSON</button>
-      <button id="btn-export-csv" type="button">Esporta CSV</button>
-      <input id="import-file" type="file" accept="application/json">
+    <!-- STORICO -->
+    <section id="view-history" class="view" hidden>
+      <div class="row">
+        <label class="field grow">
+          <span>Filtra per esercizio</span>
+          <select id="history-filter"></select>
+        </label>
+      </div>
+      <div id="history-list" class="history-list"></div>
+      <div class="actions wrap">
+        <button id="btn-export-json" type="button" class="btn btn-secondary">Esporta JSON</button>
+        <button id="btn-export-csv" type="button" class="btn btn-secondary">Esporta CSV</button>
+        <label class="btn btn-secondary file-btn">Importa backup
+          <input id="import-file" type="file" accept="application/json,.json">
+        </label>
+      </div>
+      <p id="storage-note" class="muted"></p>
     </section>
 
-    <section id="view-profile" hidden>
-      <svg id="lv-chart" role="img" aria-label="Profilo carico-velocita"></svg>
-      <div id="lv-result"></div>
+    <!-- PROFILO -->
+    <section id="view-profile" class="view" hidden>
+      <div class="row">
+        <label class="field grow">
+          <span>Esercizio</span>
+          <select id="profile-exercise"></select>
+        </label>
+        <label class="field">
+          <span>Vel. minima 1RM (m/s)</span>
+          <input id="mvt" type="number" inputmode="decimal" min="0.05" max="1" step="0.01">
+        </label>
+      </div>
+      <svg id="lv-chart" viewBox="0 0 360 260" role="img" aria-label="Profilo carico-velocita"></svg>
+      <div id="lv-result" class="card"></div>
+      <div id="lv-calc" class="card" hidden>
+        <label class="field">
+          <span>Carico (kg) &rarr; velocita attesa</span>
+          <input id="calc-load" type="number" inputmode="decimal" min="0" step="0.5">
+        </label>
+        <output id="calc-vel" class="calc-out">--</output>
+        <label class="field">
+          <span>Velocita obiettivo (m/s) &rarr; carico</span>
+          <input id="calc-v" type="number" inputmode="decimal" min="0" step="0.01">
+        </label>
+        <output id="calc-kg" class="calc-out">--</output>
+      </div>
     </section>
 
-    <section id="view-settings" hidden>
-      <label>Soglia perdita (%) <input id="threshold" type="number" min="5" max="50" step="5" value="20"></label>
-      <label><input id="sound" type="checkbox" checked> Suono</label>
-      <button id="btn-end-workout" type="button">Fine allenamento</button>
+    <!-- IMPOSTAZIONI -->
+    <section id="view-settings" class="view" hidden>
+      <div class="card">
+        <div class="field">
+          <span>Soglia perdita di velocita</span>
+          <div class="stepper">
+            <button id="thr-minus" type="button" class="btn btn-step" aria-label="Meno soglia">&minus;</button>
+            <output id="threshold">20%</output>
+            <button id="thr-plus" type="button" class="btn btn-step" aria-label="Piu soglia">+</button>
+          </div>
+        </div>
+        <label class="field">
+          <span>Passo del carico</span>
+          <select id="load-step">
+            <option value="1.25">1,25 kg</option>
+            <option value="2.5">2,5 kg</option>
+            <option value="5">5 kg</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card">
+        <label class="switch"><input id="sound" type="checkbox" checked><span>Suono allarme</span></label>
+        <label class="switch"><input id="repeat-alarm" type="checkbox"><span>Ripeti allarme a ogni rep sopra soglia</span></label>
+        <button id="btn-test-sound" type="button" class="btn btn-secondary">Prova suono</button>
+      </div>
+
+      <div class="card">
+        <button id="btn-end-workout" type="button" class="btn btn-danger">Fine allenamento</button>
+      </div>
+
+      <details class="card" id="log-box">
+        <summary>Log</summary>
+        <pre id="log"></pre>
+      </details>
+      <p id="app-version" class="muted"></p>
     </section>
   </main>
 
-  <nav id="tabs">
-    <button data-view="view-live" type="button">Live</button>
-    <button data-view="view-history" type="button">Storico</button>
-    <button data-view="view-profile" type="button">Profilo</button>
-    <button data-view="view-settings" type="button">Impostazioni</button>
-  </nav>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
 
-  <pre id="log" hidden></pre>
+  <nav id="tabs">
+    <button data-view="view-live" type="button" aria-selected="true">Live</button>
+    <button data-view="view-history" type="button" aria-selected="false">Storico</button>
+    <button data-view="view-profile" type="button" aria-selected="false">Profilo</button>
+    <button data-view="view-settings" type="button" aria-selected="false">Impost.</button>
+  </nav>
 
   <script type="module">
     import { main } from "./js/main.js";
-    window.addEventListener("DOMContentLoaded", () => main());
+    const start = () => main().catch((e) => {
+      document.body.insertAdjacentHTML("afterbegin",
+        '<p style="color:#ff453a;padding:16px;font:16px sans-serif">Errore di avvio: ' +
+        String(e && e.message || e).replace(/</g, "&lt;") + "</p>");
+    });
+    if (document.readyState === "loading") window.addEventListener("DOMContentLoaded", start);
+    else start();
   </script>
 </body>
 </html>
