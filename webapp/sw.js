@@ -1,5 +1,5 @@
 // Offline cache of the app shell (WA-70). Bump CACHE when any file below changes.
-const CACHE = "vbt-shell-v1";
+const CACHE = "vbt-shell-v2";
 const SHELL = [
   "./",
   "index.html",

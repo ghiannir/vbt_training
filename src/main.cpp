@@ -120,6 +120,7 @@ static void onRep(const RepMetrics& m, uint32_t t_us) {
 // Comandi dall'app. Tabella dei comandi validi per stato: docs/ble-protocol.md, precisazione 2.
 static bool onCommand(ble::Opcode op, const uint8_t* args, size_t len) {
   bool ok = true;
+  errorCode = 0;  // gli Status inviati durante il comando (es. da stopSet) non devono riportare l'errore precedente
   switch (op) {
     case ble::Opcode::StartSet:
       ok = state == DeviceState::Ready || state == DeviceState::SetDone;

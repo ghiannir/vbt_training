@@ -26,6 +26,15 @@ import {
 
 /** Delay before each automatic reconnection attempt (WA-13). */
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 8000];
+const COMMAND_REPLY_MS = 1500;  // attesa dello Status che il firmware manda dopo ogni comando
+const ERROR_BAD_COMMAND = 3;    // Status.error_code: comando non valido
+
+/** @param {string} why */
+function commandRejected(why) {
+  const err = new Error(`Comando non accettato dal sensore (${why})`);
+  err.name = "CommandRejected";
+  return err;
+}
 
 export class VbtBle {
   /** @type {Map<string, Set<Function>>} */
@@ -340,22 +349,41 @@ export class VbtBle {
 
   /**
    * Write raw bytes to the Command characteristic (write with response).
-   * Rejects if the device answers ATT error 0x80 (invalid command for state).
+   * The firmware can't fail the write (NimBLE has no ATT 0x80): it notifies Status after every
+   * command, with error_code=3 if the command was invalid (protocol, round 2). Rejects in that case.
    * @param {Uint8Array} bytes
    * @returns {Promise<void>}
    */
   sendCommand(bytes) {
     return this.#serial(async () => {
       const c = this.#requireChar("command");
+      const reply = this.#nextStatus(COMMAND_REPLY_MS);
       try {
         if (c.writeValueWithResponse) await c.writeValueWithResponse(bytes);
         else await c.writeValue(bytes);
       } catch (e) {
-        const err = new Error(`Comando non accettato dal sensore (${/** @type {any} */ (e)?.message ?? e})`);
-        err.name = "CommandRejected";
-        throw err;
+        reply.cancel();
+        throw commandRejected(/** @type {any} */ (e)?.message ?? String(e));
       }
+      const st = await reply.promise;
+      if (st?.errorCode === ERROR_BAD_COMMAND) throw commandRejected("non valido in questo stato");
     });
+  }
+
+  /**
+   * Resolves with the next Status notification, or null after `ms` (older firmware: no reply).
+   * @param {number} ms
+   * @returns {{promise: Promise<DeviceStatus|null>, cancel: () => void}}
+   */
+  #nextStatus(ms) {
+    /** @type {() => void} */
+    let cancel = () => {};
+    const promise = new Promise((resolve) => {
+      const timer = setTimeout(() => { off(); resolve(null); }, ms);
+      const off = this.on("status", (st) => { clearTimeout(timer); off(); resolve(st); });
+      cancel = () => { clearTimeout(timer); off(); resolve(null); };
+    });
+    return { promise, cancel };
   }
 
   /** @returns {Promise<void>} */
