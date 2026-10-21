@@ -22,7 +22,7 @@ constexpr float MADGWICK_BETA = 0.1f;  // piu' alto = si fida di piu' dell'accel
 // --- Rilevamento "fermo" ---
 constexpr float STILL_ACC_DEV_G = 0.03f;  // ||acc|-1g| sotto questa soglia ...
 constexpr float STILL_GYRO_DPS = 8.0f;    // ... e |gyro| sotto questa => fermo
-constexpr uint32_t STILL_MIN_MS = 250;    // fermo per almeno tanto = riposo (fine rep / ZUPT)
+constexpr uint32_t STILL_MIN_MS = 150;    // fermo per almeno tanto = riposo (fine rep / ZUPT)
 
 // --- Rilevamento rep ---
 constexpr uint32_t REP_MIN_MS = 300;    // movimenti piu' brevi sono scartati
