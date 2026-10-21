@@ -13,6 +13,11 @@ class Imu {
 
   // Campioni persi dall'ultima chiamata (buchi nei timestamp > 1.5 periodi): per diagnostica.
   uint32_t droppedSamples() const;
+
+ private:
+  uint8_t addr_ = 0;       // indirizzo I2C del BMI270 (0x68 o 0x69)
+  uint32_t lastT_us_ = 0;  // timestamp dell'ultimo campione letto
+  mutable uint32_t dropped_ = 0;
 };
 
 // Risultato della calibrazione a riposo.
