@@ -39,7 +39,7 @@ Ogni requisito e' testabile: tra parentesi il modo di verifica (T = test automat
 
 ## 4. Gestione delle serie
 
-- **WA-30** L'utente puo' avviare e terminare una serie con un pulsante grande (invia `START_SET` / `END_SET` al dispositivo); gli eventi di serie originati dal dispositivo (inizio/fine automatici) aggiornano comunque l'interfaccia. (M)
+- **WA-30** L'utente puo' avviare e terminare una serie con un pulsante grande (invia `START_SET` / `STOP_SET` al dispositivo); gli eventi di serie originati dal dispositivo (inizio/fine automatici) aggiornano comunque l'interfaccia. (M)
 - **WA-31** Prima o durante la serie l'utente inserisce **esercizio**, **carico (kg)** con passi +/- (default 2.5 kg, tap lungo ripete) e puo' correggerlo a fine serie. Il carico viene salvato con la serie. (M)
 - **WA-32** Ogni serie salvata contiene: id, timestamp inizio/fine, esercizio, carico, soglia di perdita usata, ripetizioni (con tutti i campi del protocollo), motivo di fine serie. (T)
 - **WA-33** Una sessione (allenamento) raggruppa le serie della giornata; si avvia automaticamente alla prima serie e si chiude con "Fine allenamento" o dopo 3 ore di inattivita'. (T)

@@ -98,8 +98,8 @@ La stima live non e' corretta dalla ZUPT: e' solo indicativa (barra/indicatore).
 | 0x06 | REQUEST_REPS | u8 `set_id`, u8 `from_rep` | rinvia via Rep le rep dalla `from_rep` (1-based) in poi |
 | 0x07 | REQUEST_STATUS | - | rinvia Status e SetSummary |
 
-Comando sconosciuto, argomenti fuori range o non ammesso nello stato corrente: errore ATT `0x80` e `error_code=3` in Status
-(la web app vede la write fallire). Il firmware conserva in RAM le ultime **64 rep** della serie corrente e della precedente.
+Comando sconosciuto, argomenti fuori range o non ammesso nello stato corrente: `error_code=3` in Status, notificato subito
+(la write riesce comunque: vedi "Precisazioni (round 2)"). Il firmware conserva in RAM le ultime **64 rep** della serie corrente e della precedente.
 
 ## Riconnessione e risincronizzazione
 
@@ -143,7 +143,7 @@ Command REQUEST_REPS(set 1, da rep 4): `06 01 04`   SET_THRESHOLD 25 %: `04 19`
 ## Precisazioni (round di revisione 1, concordate con `webapp`)
 
 1. **Perdita di velocita'**: `vloss_pct = clamp(round((best_mcv - mcv) / best_mcv * 100), 0, 100)`, dove `best_mcv` e' la migliore MCV della serie *incluse* la rep corrente (quindi 0 per la rep migliore). Il flag bit0 di Rep (soglia superata) e' 1 se `vloss_thr_pct > 0 && vloss_pct >= vloss_thr_pct` (>=, non >).
-2. **Comandi validi per stato** (altrimenti errore ATT `0x80`):
+2. **Comandi validi per stato** (altrimenti `error_code=3`, vedi Precisazioni round 2):
 
 | Comando | IDLE | CALIBRATING | READY | SET_ACTIVE | SET_DONE | ERROR |
 |---|---|---|---|---|---|---|
@@ -160,3 +160,12 @@ Command REQUEST_REPS(set 1, da rep 4): `06 01 04`   SET_THRESHOLD 25 %: `04 19`
 6. **Status in connessione**: la lettura subito dopo la connessione restituisce lo stato reale anche a serie in corso. Soglia e beep restano in RAM fino al riavvio (default da `config.h`); l'app puo' reinviarli a ogni connessione.
 7. **Advertising**: l'UUID a 128 bit va nel pacchetto di advertising (18 B), il nome `VBT-XXXX` nella scan response. Bluefy/Web Bluetooth vede entrambi.
 8. **Live**: opzionale; l'app puo' non iscriversi (il firmware non invia nulla senza iscritti).
+
+## Precisazioni (round 2, implementazione firmware)
+
+1. **Comandi non validi**: il firmware usa NimBLE-Arduino, che non puo' rispondere a una write con errore ATT `0x80`. La write quindi riesce sempre; un comando non valido (opcode sconosciuto, argomenti errati, non ammesso nello stato corrente) imposta `error_code=3` in Status e Status viene notificato subito. Un comando valido successivo riporta `error_code` a 0. La web app deve osservare Status dopo le write, non affidarsi a una write fallita.
+2. **Esecuzione asincrona**: i comandi sono accodati dal task BLE al loop principale e eseguiti entro pochi ms. Status viene notificato dopo ogni comando che cambia stato.
+3. **Avvio automatico**: in READY o SET_DONE, una rep valida rilevata senza START_SET avvia automaticamente una nuova serie (`set_id` incrementato, stato SET_ACTIVE), come se fosse arrivato START_SET. Il pulsante A del dispositivo alterna avvio/stop (`stop_reason` 0).
+4. **Fine serie**: il firmware per ora non ferma mai una serie per perdita di velocita' (`stop_reason` 2 non usato). Le serie terminano per pulsante, comando dell'app o dopo `SET_IDLE_TIMEOUT_MS` (60 s) senza rep (`stop_reason` 3).
+5. **Rilevamento riavvio**: una Rep con `set_id` inferiore puo' essere il replay della serie precedente (conservata in RAM); solo uno Status con `set_id` inferiore all'ultimo noto indica un riavvio. La web app deve invocare il rilevamento a ogni Status.
+6. **CALIBRATING**: lo stato non e' ancora usato; il dispositivo passa da IDLE a READY quando rileva per la prima volta di essere fermo (allora il flag di calibrazione valida, bit2, e' impostato).
