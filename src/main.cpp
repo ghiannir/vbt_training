@@ -1,6 +1,7 @@
 // Passo 5: algoritmo + Bluetooth. Dopo ogni rep mostra la MCV e la invia all'app (docs/ble-protocol.md).
 // Il log grezzo su USB resta attivo (passo 3) e ogni rep aggiunge una riga "#REP,...".
-// Tasto A (frontale): avvia/ferma la serie. Tasto B (laterale): segna un evento (#NOTE).
+// Tasto A (frontale): avvia/ferma la serie. Tasto B (laterale): breve = segna un evento (#NOTE),
+// tenuto 2 s = spegne. Si riaccende con una pressione breve del tasto di accensione.
 // Una rep fatta da PRONTO o da serie finita avvia da sola una nuova serie.
 #include <M5Unified.h>
 #include <math.h>
@@ -215,6 +216,7 @@ void setup() {
   Serial.begin(115200);
   Serial.setTxTimeoutMs(0);  // la seriale non deve mai bloccare il ciclo (NF-01)
   M5.begin();
+  M5.BtnB.setHoldThresh(2000);  // B tenuto 2 s = spegnimento
   M5.Display.setBrightness(128);
   M5.Display.setRotation(1);  // orizzontale: 240x135
 
@@ -247,7 +249,17 @@ void loop() {
       startSet();
     }
   }
-  if (M5.BtnB.wasPressed()) logger.mark("NOTE");
+  if (M5.BtnB.wasClicked()) logger.mark("NOTE");
+  if (M5.BtnB.wasHold()) {
+    // La pressione lunga del tasto di accensione porta il chip nel bootloader: si spegne da qui.
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Display.setTextDatum(middle_center);
+    M5.Display.setTextSize(2);
+    M5.Display.drawString("Spegnimento", 120, 67);
+    delay(600);
+    M5.Power.powerOff();
+  }
 
   ImuSample s;
   for (int i = 0; i < 32 && imu.read(s); i++) {  // a blocchi, cosi' resta tempo per tasti, BLE e schermo
