@@ -36,4 +36,9 @@ class SetTracker {
   uint8_t repCount() const;
   float bestMcvMs() const;
   float meanMcvMs() const;
+
+ private:
+  uint8_t threshold_ = 0;
+  uint8_t count_ = 0;
+  float best_ = 0, sum_ = 0;
 };

@@ -22,4 +22,13 @@ class Madgwick {
 
   // Accelerazione verticale lineare in m/s^2 (positiva verso l'alto), gravita' sottratta.
   float verticalAccel(const Vec3& accG) const;
+
+  // Modulo della gravita' misurato a riposo (in g): compensa l'errore di scala dell'accelerometro.
+  void setGravityG(float g) { gravityG_ = g; }
+  void setBeta(float beta) { beta_ = beta; }
+
+ private:
+  float beta_;
+  float gravityG_ = 1.0f;
+  Quaternion q_;
 };

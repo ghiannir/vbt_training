@@ -1,44 +1,61 @@
-// Passo 3: log dei dati grezzi su USB per tarare l'algoritmo sul PC (FW-27).
-// Tasto A (frontale): inizio/fine serie. Tasto B (laterale): segna un evento (#NOTE).
+// Passo 4: algoritmo sul dispositivo. Dopo ogni rep mostra la velocita' media concentrica (MCV).
+// Il log grezzo su USB resta attivo (passo 3) e ogni rep aggiunge una riga "#REP,...".
+// Tasto A (frontale): nuova serie. Tasto B (laterale): segna un evento (#NOTE).
 // Sul PC: uv run --with pyserial tools/record.py
 #include <M5Unified.h>
-#include <math.h>
 
+#include "config.h"
 #include "imu.h"
 #include "logger.h"
+#include "pipeline.h"
 
 static Imu imu;
 static RawLogger logger;
-static ImuSample last;
-static bool inSet = false;
-static uint32_t setCount = 0, notes = 0;
-static uint32_t samples = 0, dropped = 0;
-static float rateHz = 0;
+static VbtPipeline pipeline;
+static SetTracker set;
+static SetTracker::Result lastResult;
+static uint32_t setCount = 0;
+static bool repShown = false;
+static bool dirty = true;  // da ridisegnare
+
+static void startSet() {
+  setCount++;
+  set.start(cfg::DEFAULT_VLOSS_THRESHOLD_PCT);
+  repShown = false;
+  dirty = true;
+  logger.mark("SET_START");
+}
 
 static void draw() {
-  M5.Display.setTextDatum(top_left);
-  M5.Display.setTextSize(3);
-  M5.Display.setTextColor(inSet ? TFT_BLACK : TFT_WHITE, inSet ? TFT_GREEN : TFT_BLACK);
-  M5.Display.fillRect(0, 0, 240, 34, inSet ? TFT_GREEN : TFT_BLACK);
-  M5.Display.setCursor(6, 6);
-  M5.Display.printf(inSet ? "SERIE %lu" : "PRONTO", (unsigned long)setCount);
+  auto& d = M5.Display;
+  bool alert = repShown && lastResult.thresholdExceeded;
+  uint16_t bg = alert ? TFT_RED : TFT_BLACK;
+  d.fillScreen(bg);
+  d.setTextColor(TFT_DARKGREY, bg);
+  d.setTextSize(2);
+  d.setTextDatum(top_left);
+  d.drawString(String("serie ") + setCount, 6, 4);
+  d.setTextDatum(top_right);
+  d.drawString(String("rep ") + set.repCount(), 234, 4);
 
-  M5.Display.setTextSize(2);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  float norm = sqrtf(last.acc.x * last.acc.x + last.acc.y * last.acc.y + last.acc.z * last.acc.z);
-  M5.Display.setCursor(6, 46);
-  M5.Display.printf("|a| %.3f g   ", norm);
-  M5.Display.setCursor(6, 70);
-  M5.Display.printf("note %lu   ", (unsigned long)notes);
-
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(dropped ? TFT_RED : TFT_DARKGREY, TFT_BLACK);
-  M5.Display.setCursor(6, 100);
-  M5.Display.printf("%.0f Hz  persi %lu  batt %d%%   ", rateHz, (unsigned long)dropped,
-                    M5.Power.getBatteryLevel());
-  M5.Display.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  M5.Display.setCursor(6, 118);
-  M5.Display.print("A: serie   B: nota");
+  d.setTextDatum(middle_center);
+  if (!repShown) {
+    d.setTextColor(TFT_WHITE, bg);
+    d.setTextSize(3);
+    d.drawString(pipeline.isStill() ? "PRONTO" : "...", 120, 64);
+  } else {
+    const RepMetrics& m = pipeline.lastRep();
+    d.setTextColor(m.lowQuality ? TFT_YELLOW : TFT_GREEN, bg);
+    d.setTextSize(6);
+    d.drawString(String(m.mcvMs, 2), 120, 60);
+    d.setTextSize(2);
+    d.setTextColor(TFT_WHITE, bg);
+    d.drawString(String("-") + lastResult.velocityLossPct + "%  ROM " + String(m.romM * 100, 0) + "cm", 120, 104);
+  }
+  d.setTextSize(1);
+  d.setTextColor(TFT_DARKGREY, bg);
+  d.setTextDatum(bottom_left);
+  d.drawString(String("m/s  batt ") + M5.Power.getBatteryLevel() + "%  A: nuova serie", 6, 133);
 }
 
 void setup() {
@@ -46,7 +63,6 @@ void setup() {
   M5.begin();
   M5.Display.setBrightness(128);
   M5.Display.setRotation(1);  // orizzontale: 240x135
-  M5.Display.fillScreen(TFT_BLACK);
 
   if (!imu.begin()) {
     M5.Display.fillScreen(TFT_RED);
@@ -58,38 +74,40 @@ void setup() {
     while (true) delay(1000);
   }
   logger.begin();
+  startSet();
 }
 
 void loop() {
-  static uint32_t lastDraw = 0, lastRate = 0;
+  static uint32_t lastDraw = 0;
+  static bool wasStill = false;
   M5.update();
 
-  if (M5.BtnA.wasPressed()) {
-    inSet = !inSet;
-    if (inSet) setCount++;
-    logger.mark(inSet ? "SET_START" : "SET_STOP");
-  }
-  if (M5.BtnB.wasPressed()) {
-    notes++;
-    logger.mark("NOTE");
-  }
+  if (M5.BtnA.wasPressed()) startSet();
+  if (M5.BtnB.wasPressed()) logger.mark("NOTE");
 
   ImuSample s;
   while (imu.read(s)) {  // svuota tutto quello che la FIFO ha accumulato
     logger.logSample(s);
-    last = s;
-    samples++;
+    if (pipeline.update(s)) {
+      const RepMetrics& m = pipeline.lastRep();
+      lastResult = set.addRep(m);
+      repShown = true;
+      dirty = true;
+      Serial.printf("#REP,%lu,n=%u,mcv=%.3f,peak=%.3f,rom=%.3f,conc_ms=%lu,loss=%u%s\n", (unsigned long)s.t_us,
+                    lastResult.repIndex, m.mcvMs, m.peakMs, m.romM, (unsigned long)m.concMs,
+                    lastResult.velocityLossPct, m.lowQuality ? ",lowq" : "");
+    }
+  }
+  if (pipeline.isStill() != wasStill) {
+    wasStill = pipeline.isStill();
+    if (!repShown) dirty = true;
   }
 
+  // Si ridisegna solo quando cambia qualcosa, al massimo 5 volte al secondo
   uint32_t now = millis();
-  if (now - lastRate >= 1000) {
-    rateHz = samples * 1000.0f / (now - lastRate);
-    dropped += imu.droppedSamples();
-    samples = 0;
-    lastRate = now;
-  }
-  if (now - lastDraw >= 250) {
+  if (dirty && now - lastDraw >= 200) {
     lastDraw = now;
+    dirty = false;
     draw();
   }
 }

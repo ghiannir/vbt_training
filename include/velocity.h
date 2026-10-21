@@ -11,6 +11,9 @@ class LiveVelocity {
   float update(float aUp, float dt, bool still);
   float velocity() const;
   float height() const;  // spostamento verticale dall'ultimo reset, in m
+
+ private:
+  float v_ = 0, z_ = 0;
 };
 
 // Risultato dell'integrazione di una rep gia' conclusa.
