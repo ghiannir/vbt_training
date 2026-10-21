@@ -23,6 +23,9 @@ export const SETTINGS_KEY = "vbt.settings";
  * @property {number} loadStepKg         default 2.5
  * @property {Record<string, number>} minVelocityThreshold  per exercise, m/s (WA-62)
  * @property {number|null} lastBackupAt  epoch ms (WA-52)
+ * @property {boolean} githubEnabled     upload sessions to GitHub after each set
+ * @property {string} githubRepo         "owner/name"
+ * @property {string} githubToken        secret: never exported in backups
  */
 
 /**
@@ -44,6 +47,9 @@ export function defaultSettings() {
     loadStepKg: 2.5,
     minVelocityThreshold: { ...DEFAULT_MVT },
     lastBackupAt: null,
+    githubEnabled: false,
+    githubRepo: "ghiannir/vbt-data",
+    githubToken: "",
   };
 }
 
@@ -115,7 +121,7 @@ export function saveSettings(patch) {
 export function buildBackup(sessions, settings, now = Date.now()) {
   /** @type {BackupFile} */
   const b = { schemaVersion: SCHEMA_VERSION, exportedAt: now, sessions };
-  if (settings) b.settings = settings;
+  if (settings) b.settings = { ...settings, githubToken: "" }; // the token never leaves the device
   return b;
 }
 
@@ -149,7 +155,7 @@ export function parseBackup(input) {
     exportedAt: typeof obj.exportedAt === "number" ? obj.exportedAt : Date.now(),
     sessions,
   };
-  if (obj.settings && typeof obj.settings === "object") out.settings = mergeSettings(obj.settings);
+  if (obj.settings && typeof obj.settings === "object") out.settings = { ...mergeSettings(obj.settings), githubToken: "" };
   return out;
 }
 

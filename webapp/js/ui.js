@@ -143,6 +143,8 @@ export function exerciseLabel(key) {
  * @property {(exercise: string) => void} onProfileExercise
  * @property {(exercise: string, mvt: number) => void} onMvtChange
  * @property {() => void} onResume           page visible again after being hidden while connected
+ * @property {(cfg: { enabled: boolean, repo: string, token: string }) => void} onGithubChange
+ * @property {() => Promise<{ ok: boolean, message: string }>} onGithubTest
  */
 
 /** @type {UiHandlers} */
@@ -262,6 +264,23 @@ export function initUi(handlers) {
     H.onLoadStepChange(ui.loadStep);
   });
   $("btn-test-sound").addEventListener("click", () => { unlockAudio(); beep(); });
+  const ghChanged = () => H.onGithubChange({
+    enabled: $("gh-enabled").checked,
+    repo: $("gh-repo").value.trim(),
+    token: $("gh-token").value.trim(),
+  });
+  for (const id of ["gh-enabled", "gh-repo", "gh-token"]) $(id).addEventListener("change", ghChanged);
+  $("btn-gh-test").addEventListener("click", async () => {
+    ghChanged();
+    const out = $("gh-test-result");
+    out.textContent = "Verifica in corso...";
+    $("btn-gh-test").disabled = true;
+    try {
+      const r = await H.onGithubTest();
+      out.textContent = r.message;
+      out.dataset.ok = String(r.ok);
+    } finally { $("btn-gh-test").disabled = false; }
+  });
   confirmButton($("btn-end-workout"), STRINGS.btn.endWorkout, STRINGS.btn.endWorkoutConfirm, () => H.onEndWorkout());
 
   // History
@@ -351,7 +370,8 @@ export function showView(viewId) {
 /**
  * Apply persisted settings to the controls.
  * @param {{ exercise?: string, loadKg?: number, loadStepKg?: number, thresholdPct?: number,
- *           soundOn?: boolean, repeatAlarm?: boolean }} s
+ *           soundOn?: boolean, repeatAlarm?: boolean,
+ *           githubEnabled?: boolean, githubRepo?: string, githubToken?: string }} s
  */
 export function applySettings(s) {
   if (s.exercise != null) $("exercise").value = s.exercise;
@@ -364,6 +384,26 @@ export function applySettings(s) {
   }
   if (s.soundOn != null) { ui.soundOn = s.soundOn; $("sound").checked = s.soundOn; }
   if (s.repeatAlarm != null) $("repeat-alarm").checked = s.repeatAlarm;
+  if (s.githubEnabled != null) $("gh-enabled").checked = s.githubEnabled;
+  if (s.githubRepo != null) $("gh-repo").value = s.githubRepo;
+  if (s.githubToken != null) $("gh-token").value = s.githubToken;
+}
+
+/**
+ * Show the GitHub upload state: status line in settings and a small chip in the top bar.
+ * @param {{ enabled: boolean, busy: boolean, pending: number, lastAt: number|null, error: string|null }} st
+ */
+export function showGithubStatus(st) {
+  const chip = $("gh-status");
+  chip.hidden = !st.enabled;
+  chip.dataset.state = st.error ? "error" : st.busy || st.pending ? "pending" : "ok";
+  chip.title = st.error ? `GitHub: ${st.error}` : "Salvataggio su GitHub";
+  const parts = [];
+  if (st.lastAt) parts.push(`Ultimo salvataggio: ${new Date(st.lastAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`);
+  else parts.push("Nessun salvataggio ancora");
+  if (st.pending) parts.push(`In attesa: ${st.pending} ${st.pending === 1 ? "sessione" : "sessioni"}`);
+  if (st.error) parts.push(`Errore: ${st.error}`);
+  $("gh-sync").textContent = parts.join(" - ");
 }
 
 /** @param {number} dir */

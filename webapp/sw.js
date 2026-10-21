@@ -1,5 +1,5 @@
 // Offline cache of the app shell (WA-70). Bump CACHE when any file below changes.
-const CACHE = "vbt-shell-v2";
+const CACHE = "vbt-shell-v3";
 const SHELL = [
   "./",
   "index.html",
@@ -13,6 +13,7 @@ const SHELL = [
   "js/protocol.js",
   "js/session.js",
   "js/storage.js",
+  "js/github.js",
   "js/lvprofile.js",
 ];
 
@@ -34,7 +35,8 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Cache-first for same-origin GETs; ?demo=1 and other query strings share the cached page.
+// Cache-first for same-origin GETs only: api.github.com (cross-origin) always goes to the network.
+// ?demo=1 and other query strings share the cached page.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;

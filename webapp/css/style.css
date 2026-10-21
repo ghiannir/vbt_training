@@ -101,7 +101,7 @@ main { padding: 12px 12px calc(var(--tabs-h) + var(--safe-b) + 24px); max-width:
 .actions .btn-secondary { min-width: 96px; }
 .actions.wrap { flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: .95rem; color: var(--muted); }
-select, input[type="number"] {
+select, input[type="number"], input[type="text"], input[type="password"] {
   font: inherit; font-size: 1.15rem; color: var(--text);
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
   min-height: 56px; padding: 0 12px; width: 100%;
@@ -234,3 +234,11 @@ details > summary { min-height: 44px; display: flex; align-items: center; cursor
 }
 @media (min-width: 700px) { .mcv { font-size: min(28vh, 14rem); } }
 @media (prefers-reduced-motion: reduce) { .dot, #flash.on { animation-duration: 1ms; } }
+
+/* GitHub sync */
+.card-title { margin: 0; font-size: 1.1rem; }
+.gh-status { font-size: .8rem; font-weight: 700; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ok); }
+.gh-status[data-state="pending"] { color: var(--warn); }
+.gh-status[data-state="error"] { color: var(--alarm); border-color: var(--alarm); }
+#gh-test-result[data-ok="true"] { color: var(--ok); }
+#gh-test-result[data-ok="false"] { color: var(--alarm); }

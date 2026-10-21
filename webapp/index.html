@@ -23,6 +23,7 @@
         <span id="conn-detail" class="muted"></span>
       </div>
     </div>
+    <span id="gh-status" class="gh-status" data-state="ok" title="Salvataggio su GitHub" hidden>GH</span>
     <span id="battery" class="battery" hidden></span>
     <button id="btn-connect" type="button" class="btn btn-primary">Connetti</button>
   </header>
@@ -159,6 +160,26 @@
         <label class="switch"><input id="sound" type="checkbox" checked><span>Suono allarme</span></label>
         <label class="switch"><input id="repeat-alarm" type="checkbox"><span>Ripeti allarme a ogni rep sopra soglia</span></label>
         <button id="btn-test-sound" type="button" class="btn btn-secondary">Prova suono</button>
+      </div>
+
+      <div class="card" id="github-card">
+        <h2 class="card-title">Salvataggio su GitHub</h2>
+        <label class="switch"><input id="gh-enabled" type="checkbox"><span>Salva ogni serie su GitHub</span></label>
+        <label class="field stack">
+          <span>Repo (utente/nome)</span>
+          <input id="gh-repo" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ghiannir/vbt-data">
+        </label>
+        <label class="field stack">
+          <span>Token</span>
+          <input id="gh-token" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_...">
+        </label>
+        <button id="btn-gh-test" type="button" class="btn btn-secondary">Prova connessione</button>
+        <p id="gh-test-result" class="muted" role="status"></p>
+        <p id="gh-sync" class="muted"></p>
+        <details>
+          <summary>Come ottenere il token</summary>
+          <p class="muted">Vai su github.com/settings/personal-access-tokens/new e crea un token a grana fine. In "Repository access" scegli "Only select repositories" e seleziona ghiannir/vbt-data. In "Permissions" imposta "Contents: Read and write". La scadenza la scegli tu. Incolla qui il token: resta solo su questo telefono e non finisce mai nei backup.</p>
+        </details>
       </div>
 
       <div class="card">

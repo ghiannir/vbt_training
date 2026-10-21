@@ -10,6 +10,7 @@ import {
   loadSettings, saveSettings, openStore, sessionsToCsv, requestPersistence, downloadTextFile,
 } from "./storage.js";
 import { pointsFromSets, estimateOneRm, mvtForExercise } from "./lvprofile.js";
+import { createUploader, testConnection } from "./github.js";
 import * as ui from "./ui.js";
 
 /** @typedef {import("./session.js").VbtSet} VbtSet */
@@ -80,12 +81,28 @@ export async function main() {
     ui.showSet(set, set ? setNumber(set) : undefined);
   }
 
+  // GitHub sync: never in demo mode, never awaited by the workout code.
+  const github = demo || !store ? null : createUploader({
+    fetch: (...args) => fetch(...args),
+    getConfig: () => settings,
+    getSession: (id) => /** @type {import("./storage.js").Store} */ (store).getSession(id),
+    onStatus: ui.showGithubStatus,
+    log: ui.log,
+  });
+  /** @param {string} id */
+  function uploadSession(id) {
+    github?.notifySession(id).catch((e) => ui.log(`GitHub: ${errText(e)}`, "warn"));
+  }
+
   // Saving: coalesced so a burst of notifications never queues up writes (WA-25, WA-51).
   let saving = false;
   let dirty = false;
-  function scheduleSave() {
+  let uploadWanted = false;
+  /** @param {boolean} [upload] also send the session to GitHub once saved (a set has ended) */
+  function scheduleSave(upload = false) {
     if (!store) return;
     dirty = true;
+    if (upload) uploadWanted = true;
     if (saving) return;
     saving = true;
     (async () => {
@@ -93,7 +110,12 @@ export async function main() {
         dirty = false;
         const s = tracker.session;
         if (!s.sets.length) continue;
-        try { await store.putSession(s); } catch (e) { ui.log(`Salvataggio fallito: ${errText(e)}`, "error"); }
+        const upload = uploadWanted;
+        uploadWanted = false;
+        try {
+          await store.putSession(s);
+          if (upload) uploadSession(s.id);
+        } catch (e) { ui.log(`Salvataggio fallito: ${errText(e)}`, "error"); }
       }
       saving = false;
     })();
@@ -152,7 +174,7 @@ export async function main() {
       if (set.reps.length < top && !set.lostReps) {
         tracker.markLost(set);
         ui.log(`Serie con ripetizioni mancanti (${set.reps.length}/${top}).`, "warn");
-        scheduleSave();
+        scheduleSave(set.endedAt !== null);
         if (set === lastSet()) renderLastSet();
       }
     }, 5000);
@@ -198,7 +220,7 @@ export async function main() {
     } else if (open) {
       const ended = tracker.endSet(null);
       lastSetEndedAt = Date.now();
-      if (ended) { renderLastSet(); scheduleSave(); }
+      if (ended) { renderLastSet(); scheduleSave(true); }
     }
     if (tareWaiting && (st.state === State.READY || st.state === State.ERROR)) {
       tareWaiting = false;
@@ -222,7 +244,7 @@ export async function main() {
       ble.requestReps(sum.setId, missing).catch((e) => ui.log(`Richiesta rep: ${errText(e)}`, "warn"));
       verifyLater(set, sum.repCount);
     }
-    scheduleSave();
+    scheduleSave(set.endedAt !== null);
     if (isLatest(set)) renderLastSet();
   });
 
@@ -266,7 +288,7 @@ export async function main() {
       if (tracker.currentSet) tracker.setLoad(value);
       else if (lastSetEndedAt && Date.now() - lastSetEndedAt < LOAD_CORRECTION_MS) {
         tracker.setLastSetLoad(value);
-        scheduleSave();
+        scheduleSave(true);
         renderLastSet();
       } else tracker.setLoad(value);
     },
@@ -289,7 +311,10 @@ export async function main() {
     onEndWorkout: async () => {
       const ended = tracker.endSession();
       lastSetEndedAt = 0;
-      if (store && ended.sets.length) await store.putSession(ended).catch((e) => ui.log(errText(e), "error"));
+      if (store && ended.sets.length) {
+        const saved = await store.putSession(ended).then(() => true, (e) => { ui.log(errText(e), "error"); return false; });
+        if (saved) uploadSession(ended.id);
+      }
       ui.showSet(null);
       ui.toast("Allenamento concluso");
       refreshHistory();
@@ -334,6 +359,15 @@ export async function main() {
       saveSettings({ minVelocityThreshold: settings.minVelocityThreshold });
       refreshProfile();
     },
+    onGithubChange: ({ enabled, repo, token }) => {
+      settings = { ...settings, githubEnabled: enabled, githubRepo: repo, githubToken: token };
+      saveSettings({ githubEnabled: enabled, githubRepo: repo, githubToken: token });
+      if (github) { ui.showGithubStatus(github.status()); github.flush(); }
+    },
+    onGithubTest: async () => {
+      if (demo) return { ok: false, message: "Non disponibile in modalita demo" };
+      return testConnection({ fetch: (...args) => fetch(...args), repo: settings.githubRepo, token: settings.githubToken });
+    },
     onResume: () => {
       if (ble.state === "connected") /** @type {any} */ (ble).resync?.().catch((e) => ui.log(`Risincronizzazione: ${errText(e)}`, "warn"));
     },
@@ -361,6 +395,14 @@ export async function main() {
         if (days == null || days >= BACKUP_REMINDER_DAYS) ui.showBackupReminder(days);
       }
     } catch (e) { ui.log(`Ripristino bozza fallito: ${errText(e)}`, "warn"); }
+  }
+
+  if (github) {
+    ui.showGithubStatus(github.status());
+    // Retry pending uploads when connectivity or visibility comes back, and now.
+    window.addEventListener("online", () => { github.flush(); });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") github.flush(); });
+    github.flush();
   }
 
   registerServiceWorker();
