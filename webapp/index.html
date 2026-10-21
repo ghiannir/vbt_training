@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>VBT Training</title>
+  <!-- Skeleton only: structure, no styling or logic yet. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="statusbar">
+    <span id="conn-state">Disconnesso</span>
+    <span id="battery"></span>
+    <button id="btn-connect" type="button">Connetti</button>
+  </header>
+
+  <p id="unsupported" hidden>Apri questa pagina in Bluefy per usare il Bluetooth.</p>
+
+  <main>
+    <section id="view-live">
+      <div id="live-mcv" aria-live="polite">--</div>
+      <div id="live-rep">Rep -</div>
+      <div id="live-loss">Perdita --%</div>
+      <div id="live-extra"></div>
+      <div class="controls">
+        <label>Esercizio <select id="exercise"></select></label>
+        <label>Carico (kg)
+          <button id="load-minus" type="button">-</button>
+          <output id="load">0</output>
+          <button id="load-plus" type="button">+</button>
+        </label>
+        <button id="btn-start" type="button">Avvia serie</button>
+        <button id="btn-stop" type="button">Termina serie</button>
+        <button id="btn-tare" type="button">Tara</button>
+      </div>
+      <ol id="rep-list"></ol>
+    </section>
+
+    <section id="view-history" hidden>
+      <ul id="history-list"></ul>
+      <button id="btn-export-json" type="button">Esporta JSON</button>
+      <button id="btn-export-csv" type="button">Esporta CSV</button>
+      <input id="import-file" type="file" accept="application/json">
+    </section>
+
+    <section id="view-profile" hidden>
+      <svg id="lv-chart" role="img" aria-label="Profilo carico-velocita"></svg>
+      <div id="lv-result"></div>
+    </section>
+
+    <section id="view-settings" hidden>
+      <label>Soglia perdita (%) <input id="threshold" type="number" min="5" max="50" step="5" value="20"></label>
+      <label><input id="sound" type="checkbox" checked> Suono</label>
+      <button id="btn-end-workout" type="button">Fine allenamento</button>
+    </section>
+  </main>
+
+  <nav id="tabs">
+    <button data-view="view-live" type="button">Live</button>
+    <button data-view="view-history" type="button">Storico</button>
+    <button data-view="view-profile" type="button">Profilo</button>
+    <button data-view="view-settings" type="button">Impostazioni</button>
+  </nav>
+
+  <pre id="log" hidden></pre>
+
+  <script type="module">
+    import { main } from "./js/main.js";
+    window.addEventListener("DOMContentLoaded", () => main());
+  </script>
+</body>
+</html>
