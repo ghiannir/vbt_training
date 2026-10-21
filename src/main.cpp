@@ -60,6 +60,7 @@ static void draw() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);  // la seriale non deve mai bloccare il ciclo (NF-01)
   M5.begin();
   M5.Display.setBrightness(128);
   M5.Display.setRotation(1);  // orizzontale: 240x135
@@ -86,7 +87,7 @@ void loop() {
   if (M5.BtnB.wasPressed()) logger.mark("NOTE");
 
   ImuSample s;
-  while (imu.read(s)) {  // svuota tutto quello che la FIFO ha accumulato
+  for (int i = 0; i < 32 && imu.read(s); i++) {  // a blocchi, cosi' resta tempo per tasti e schermo
     logger.logSample(s);
     if (pipeline.update(s)) {
       const RepMetrics& m = pipeline.lastRep();
