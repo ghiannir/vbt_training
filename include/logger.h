@@ -1,10 +1,10 @@
-// Log dei dati grezzi su USB seriale (step 3). Formato in firmware/REQUIREMENTS.md, sezione "Log seriale".
+// Raw data log over USB serial (step 3). Format in firmware/REQUIREMENTS.md, section 6 "Raw data serial log".
 #pragma once
 #include "types.h"
 
 class RawLogger {
  public:
-  void begin();                         // stampa l'intestazione "# VBT raw v1 ..."
-  void logSample(const ImuSample& s);   // una riga CSV per campione
-  void mark(const char* label);         // riga "#label,t_us" (es. SET_START, SET_STOP, REP)
+  void begin();                         // prints the "# VBT raw v1 ..." header
+  void logSample(const ImuSample& s);   // one CSV line per sample
+  void mark(const char* label);         // line "#label,t_us" (e.g. SET_START, SET_STOP, REP)
 };

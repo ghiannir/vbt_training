@@ -45,11 +45,11 @@ test("backup roundtrip through JSON", () => {
 });
 
 test("parseBackup rejects garbage and newer schemas", () => {
-  assert.throws(() => S.parseBackup("not json"), /non valido/);
-  assert.throws(() => S.parseBackup("{}"), /non valido/);
-  assert.throws(() => S.parseBackup({ schemaVersion: 1, sessions: [{ id: 1, sets: [] }] }), /non valido/);
+  assert.throws(() => S.parseBackup("not json"), /Invalid backup file/);
+  assert.throws(() => S.parseBackup("{}"), /Invalid backup file/);
+  assert.throws(() => S.parseBackup({ schemaVersion: 1, sessions: [{ id: 1, sets: [] }] }), /Invalid backup file/);
   assert.throws(() => S.parseBackup({ sessions: [] }), /schemaVersion/);
-  assert.throws(() => S.parseBackup({ schemaVersion: S.SCHEMA_VERSION + 1, sessions: [] }), /recente/);
+  assert.throws(() => S.parseBackup({ schemaVersion: S.SCHEMA_VERSION + 1, sessions: [] }), /newer version/);
 });
 
 test("parseBackup migrates sparse older data without losing it", () => {

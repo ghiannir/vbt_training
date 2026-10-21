@@ -1,8 +1,8 @@
-// Passo 5: algoritmo + Bluetooth. Dopo ogni rep mostra la MCV e la invia all'app (docs/ble-protocol.md).
-// Il log grezzo su USB resta attivo (passo 3) e ogni rep aggiunge una riga "#REP,...".
-// Tasto A (frontale): avvia/ferma la serie. Tasto B (laterale): breve = segna un evento (#NOTE),
-// tenuto 2 s = spegne. Si riaccende con una pressione breve del tasto di accensione.
-// Una rep fatta da PRONTO o da serie finita avvia da sola una nuova serie.
+// Step 5: algorithm + Bluetooth. After every rep it shows the MCV and sends it to the app (docs/ble-protocol.md).
+// The raw USB log stays active (step 3) and every rep adds a "#REP,..." line.
+// Button A (front): starts/stops the set. Button B (side): short press = marks an event (#NOTE),
+// held 2 s = powers off. Turn back on with a short press of the power button.
+// A rep done from READY or after a finished set starts a new set on its own.
 #include <M5Unified.h>
 #include <math.h>
 
@@ -21,21 +21,21 @@ static SetTracker set;
 static BleService bleSvc;
 
 static DeviceState state = DeviceState::Idle;
-static uint8_t setId = 0;  // 1..255, mai 0
+static uint8_t setId = 0;  // 1..255, never 0
 static uint8_t threshold = cfg::DEFAULT_VLOSS_THRESHOLD_PCT;
 static bool beepOn = false;
 static uint8_t errorCode = 0;
 static uint8_t lastLoss = 0;
 static uint32_t setStartMs = 0, lastRepMs = 0;
-static bool dirty = true;  // da ridisegnare
+static bool dirty = true;  // needs redrawing
 
-// Ultime REP_HISTORY rep della serie corrente e della precedente, per REQUEST_REPS
+// Last REP_HISTORY reps of the current and previous set, for REQUEST_REPS
 struct RepHistory {
   uint8_t setId = 0;
   uint8_t count = 0;
   ble::RepPayload reps[ble::REP_HISTORY];
 };
-static RepHistory history[2];  // [0] = corrente, [1] = precedente
+static RepHistory history[2];  // [0] = current, [1] = previous
 
 static uint16_t mm(float m) { return (uint16_t)lroundf(m * 1000.0f); }
 
@@ -118,10 +118,10 @@ static void onRep(const RepMetrics& m, uint32_t t_us) {
                 m.lowQuality ? ",lowq" : "");
 }
 
-// Comandi dall'app. Tabella dei comandi validi per stato: docs/ble-protocol.md, precisazione 2.
+// Commands from the app. Table of valid commands per state: docs/ble-protocol.md, clarification 2.
 static bool onCommand(ble::Opcode op, const uint8_t* args, size_t len) {
   bool ok = true;
-  errorCode = 0;  // gli Status inviati durante il comando (es. da stopSet) non devono riportare l'errore precedente
+  errorCode = 0;  // Status messages sent during the command (e.g. from stopSet) must not carry the previous error
   switch (op) {
     case ble::Opcode::StartSet:
       ok = state == DeviceState::Ready || state == DeviceState::SetDone;
@@ -134,7 +134,7 @@ static bool onCommand(ble::Opcode op, const uint8_t* args, size_t len) {
     case ble::Opcode::Tare:
       ok = state != DeviceState::Calibrating && state != DeviceState::SetActive;
       if (ok) {
-        pipeline.reset();  // si ricalibra al prossimo fermo
+        pipeline.reset();  // recalibrates at the next still period
         state = DeviceState::Idle;
       }
       break;
@@ -159,7 +159,7 @@ static bool onCommand(ble::Opcode op, const uint8_t* args, size_t len) {
       }
       break;
     case ble::Opcode::RequestStatus:
-      break;  // Status si rimanda sotto; SetSummary ha gia' il valore "read" aggiornato
+      break;  // Status is resent below; SetSummary already has the updated "read" value
     default:
       ok = false;
   }
@@ -170,10 +170,10 @@ static bool onCommand(ble::Opcode op, const uint8_t* args, size_t len) {
 
 static const char* stateLabel() {
   switch (state) {
-    case DeviceState::Idle: return "fermo...";
-    case DeviceState::Ready: return "PRONTO";
-    case DeviceState::SetDone: return "FINE";
-    default: return "VIA";
+    case DeviceState::Idle: return "hold still...";
+    case DeviceState::Ready: return "READY";
+    case DeviceState::SetDone: return "DONE";
+    default: return "GO";
   }
 }
 
@@ -186,7 +186,7 @@ static void draw() {
   d.setTextColor(TFT_DARKGREY, bg);
   d.setTextSize(2);
   d.setTextDatum(top_left);
-  d.drawString(String("serie ") + setId, 6, 4);
+  d.drawString(String("set ") + setId, 6, 4);
   d.setTextDatum(top_right);
   d.drawString(String("rep ") + set.repCount(), 234, 4);
 
@@ -207,18 +207,18 @@ static void draw() {
   d.setTextSize(1);
   d.setTextColor(bleSvc.connected() ? TFT_CYAN : TFT_DARKGREY, bg);
   d.setTextDatum(bottom_left);
-  d.drawString(String(bleSvc.name()) + (bleSvc.connected() ? " connesso" : "") + "  batt " +
+  d.drawString(String(bleSvc.name()) + (bleSvc.connected() ? " connected" : "") + "  batt " +
                    M5.Power.getBatteryLevel() + "%",
                6, 133);
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);  // la seriale non deve mai bloccare il ciclo (NF-01)
+  Serial.setTxTimeoutMs(0);  // the serial port must never block the loop (NF-01)
   M5.begin();
-  M5.BtnB.setHoldThresh(2000);  // B tenuto 2 s = spegnimento
+  M5.BtnB.setHoldThresh(2000);  // B held 2 s = power off
   M5.Display.setBrightness(128);
-  M5.Display.setRotation(1);  // orizzontale: 240x135
+  M5.Display.setRotation(1);  // landscape: 240x135
 
   if (!imu.begin()) {
     state = DeviceState::Error;
@@ -227,8 +227,8 @@ void setup() {
     M5.Display.setTextColor(TFT_WHITE, TFT_RED);
     M5.Display.setTextSize(2);
     M5.Display.setCursor(8, 50);
-    M5.Display.print("IMU non risponde");
-    Serial.println("# IMU non risponde");
+    M5.Display.print("IMU not responding");
+    Serial.println("# IMU not responding");
     while (true) delay(1000);
   }
   logger.begin();
@@ -251,24 +251,24 @@ void loop() {
   }
   if (M5.BtnB.wasClicked()) logger.mark("NOTE");
   if (M5.BtnB.wasHold()) {
-    // La pressione lunga del tasto di accensione porta il chip nel bootloader: si spegne da qui.
+    // A long press of the power button drops the chip into the bootloader: power off from here instead.
     M5.Display.fillScreen(TFT_BLACK);
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.setTextDatum(middle_center);
     M5.Display.setTextSize(2);
-    M5.Display.drawString("Spegnimento", 120, 67);
+    M5.Display.drawString("Powering off", 120, 67);
     logger.mark("POWEROFF");
     delay(600);
-    M5.Power.powerOff();  // comando di shutdown al PMIC M5PM1: spegne anche con l'USB collegato
+    M5.Power.powerOff();  // shutdown command to the M5PM1 PMIC: powers off even with USB connected
   }
 
   ImuSample s;
-  for (int i = 0; i < 32 && imu.read(s); i++) {  // a blocchi, cosi' resta tempo per tasti, BLE e schermo
+  for (int i = 0; i < 32 && imu.read(s); i++) {  // in blocks, so there is time left for buttons, BLE and screen
     logger.logSample(s);
     if (pipeline.update(s)) onRep(pipeline.lastRep(), s.t_us);
   }
   if (state == DeviceState::Idle && pipeline.isStill()) {
-    state = DeviceState::Ready;  // la gravita' e' stimata: si puo' misurare
+    state = DeviceState::Ready;  // gravity is estimated: we can measure
     sendStatus();
   }
 
@@ -280,7 +280,7 @@ void loop() {
     lastLive = now;
     bleSvc.notifyLive({(int16_t)lroundf(pipeline.liveVelocity() * 1000), 0});
   }
-  if (now - lastStatus >= cfg::STATUS_PERIOD_MS) {  // batteria
+  if (now - lastStatus >= cfg::STATUS_PERIOD_MS) {  // battery
     lastStatus = now;
     sendStatus();
   }

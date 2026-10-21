@@ -1,154 +1,154 @@
-# Requisiti firmware - sensore VBT (M5Stack StickS3)
+# Firmware requirements - VBT sensor (M5Stack StickS3)
 
-Hardware: ESP32-S3, IMU BMI270, display 135x240, LiPo 250 mAh, 2 pulsanti utente (A = grande frontale, B = laterale), speaker, BLE.
-Toolchain: PlatformIO + Arduino + M5Unified. Moduli degli algoritmi in `include/` senza dipendenze Arduino (testabili con env `native`).
-Parametri numerici: `include/config.h`. Contratto BLE: `docs/ble-protocol.md`.
+Hardware: ESP32-S3, BMI270 IMU, 135x240 display, 250 mAh LiPo, 2 user buttons (A = large front, B = side), speaker, BLE.
+Toolchain: PlatformIO + Arduino + M5Unified. Algorithm modules in `include/` with no Arduino dependencies (testable with the `native` env).
+Numeric parameters: `include/config.h`. BLE contract: `docs/ble-protocol.md`.
 
-## 1. Stati
+## 1. States
 
 ```
-        accensione
+        power on
             |
-         [IDLE] --A corto--> [CALIBRATING] --ok--> [READY] --A corto--> [SET_ACTIVE]
-            ^                      |  fallita           |  ^                  |
-            |                      v                    |  |                  | A corto / app / soglia / timeout
-            |                  [ERROR] <--- IMU KO      |  +---- B lungo -----+---> [SET_DONE]
+         [IDLE] --A short--> [CALIBRATING] --ok--> [READY] --A short--> [SET_ACTIVE]
+            ^                      |  failed            |  ^                  |
+            |                      v                    |  |                  | A short / app / threshold / timeout
+            |                  [ERROR] <--- IMU KO      |  +---- B long ------+---> [SET_DONE]
             |                                           |                              |
-            +---------- inattivita' lunga (deep sleep) -+<------ A corto (nuova serie) +
+            +---------- long inactivity (deep sleep) ---+<------ A short (new set) ----+
 ```
 
-| Stato | Significato |
+| State | Meaning |
 |---|---|
-| IDLE | Acceso, sensore non calibrato. Schermo e BLE attivi. |
-| CALIBRATING | Fermo per 1,5 s: misura gravita' e offset giroscopio. |
-| READY | Calibrato, in attesa di START. Calcolo orientamento attivo. |
-| SET_ACTIVE | Serie in corso: rileva rep, calcola metriche, notifica via BLE. |
-| SET_DONE | Serie conclusa: mostra riepilogo; la memoria rep resta per la risincronizzazione. |
-| ERROR | IMU non risponde o calibrazione fallita (dispositivo mosso). Codice in Status. |
+| IDLE | Powered on, sensor not calibrated. Screen and BLE active. |
+| CALIBRATING | Still for 1.5 s: measures gravity and gyroscope offset. |
+| READY | Calibrated, waiting for START. Orientation computation active. |
+| SET_ACTIVE | Set in progress: detects reps, computes metrics, notifies via BLE. |
+| SET_DONE | Set finished: shows summary; the rep memory is kept for resynchronization. |
+| ERROR | IMU not responding or calibration failed (device moved). Code in Status. |
 
-## 2. Pulsanti
+## 2. Buttons
 
-| Pulsante | Azione | Stato | Effetto |
+| Button | Action | State | Effect |
 |---|---|---|---|
-| A | corto | IDLE | calibra (tare) |
-| A | corto | READY / SET_DONE | avvia serie |
-| A | corto | SET_ACTIVE | termina serie |
-| A | lungo (>1 s) | qualsiasi | ricalibra (TARE), solo se non SET_ACTIVE |
-| B | corto | READY / SET_DONE | cicla soglia perdita velocita' (off, 10, 20, 30 %) |
-| B | corto | SET_ACTIVE | nessun effetto (evita pressioni accidentali) |
-| B | lungo (>1 s) | SET_ACTIVE | annulla serie (scarta) |
-| B | lungo (>1 s) | READY / IDLE | attiva/disattiva beep |
+| A | short | IDLE | calibrate (tare) |
+| A | short | READY / SET_DONE | start set |
+| A | short | SET_ACTIVE | end set |
+| A | long (>1 s) | any | recalibrate (TARE), only if not SET_ACTIVE |
+| B | short | READY / SET_DONE | cycle velocity loss threshold (off, 10, 20, 30 %) |
+| B | short | SET_ACTIVE | no effect (avoids accidental presses) |
+| B | long (>1 s) | SET_ACTIVE | cancel set (discard) |
+| B | long (>1 s) | READY / IDLE | enable/disable beep |
 
-(La mappatura esatta dei tasti fisici StickS3 va verificata al momento dell'implementazione.)
+(The exact mapping of the StickS3 physical keys must be verified at implementation time.)
 
-## 3. Requisiti funzionali
+## 3. Functional requirements
 
-**Acquisizione**
-- FW-01: l'IMU e' campionato a `IMU_RATE_HZ` (400 Hz), range +-16 g e +-2000 dps.
-- FW-02: ogni campione ha timestamp in microsecondi; se i buchi superano 1,5 periodi il contatore `droppedSamples` aumenta e viene mostrato in debug.
-- FW-03: la frequenza effettiva misurata su 10 s deve essere entro 2 % di quella nominale (test: log seriale).
+**Acquisition**
+- FW-01: the IMU is sampled at `IMU_RATE_HZ` (400 Hz), range +-16 g and +-2000 dps.
+- FW-02: every sample has a microsecond timestamp; if gaps exceed 1.5 periods the `droppedSamples` counter increases and is shown in debug.
+- FW-03: the effective rate measured over 10 s must be within 2 % of the nominal one (test: serial log).
 
-**Calibrazione**
-- FW-04: la calibrazione dura `CALIB_MS` e stima direzione della gravita' e bias del giroscopio.
-- FW-05: se durante la calibrazione il gyro supera `CALIB_MAX_GYRO_DPS` o |acc| devia oltre `CALIB_MAX_ACC_DEV_G`, la calibrazione e' rifiutata (stato ERROR code 2, si puo' ripetere).
-- FW-06: la calibrazione puo' essere ripetuta in qualsiasi momento fuori da SET_ACTIVE (tasto A lungo o comando TARE).
+**Calibration**
+- FW-04: calibration lasts `CALIB_MS` and estimates the gravity direction and gyroscope bias.
+- FW-05: if during calibration the gyro exceeds `CALIB_MAX_GYRO_DPS` or |acc| deviates beyond `CALIB_MAX_ACC_DEV_G`, calibration is rejected (state ERROR code 2, can be repeated).
+- FW-06: calibration can be repeated at any time outside SET_ACTIVE (long A press or TARE command).
 
-**Algoritmo**
-- FW-07: l'orientamento e' stimato con Madgwick 6 assi (`MADGWICK_BETA`), inizializzato dalla gravita' misurata a riposo.
-- FW-08: l'accelerazione verticale terrestre e' ottenuta ruotando il campione e sottraendo 9,81 m/s^2.
-- FW-09: il sensore e' "fermo" quando |acc|-1 g e |gyro| restano sotto soglia per `STILL_MIN_MS`.
-- FW-10: una rep e' un segmento fermo -> movimento -> fermo con durata tra `REP_MIN_MS` e `REP_MAX_MS` e ROM concentrico >= `REP_MIN_ROM_M`. Segmenti non conformi sono scartati senza notifica.
-- FW-11: la velocita' di ogni rep e' ottenuta integrando l'accelerazione verticale solo durante il segmento, con correzione lineare del drift in modo che la velocita' finale sia 0 (ZUPT).
-- FW-12: la fase concentrica e' definita da velocita' > `CONC_MIN_VEL_MS` (dopo la fase eccentrica per `EccentricFirst`, subito per `ConcentricFirst`).
-- FW-13: per ogni rep si calcolano MCV, velocita' di picco, ROM, durata concentrica e totale (struct `RepMetrics`).
-- FW-14: `vloss_pct = clamp(round(100 * (best_mcv - mcv) / best_mcv), 0, 100)`, con `best_mcv` = MCV massima della serie finora inclusa la rep corrente. Flag soglia (e beep di soglia) quando `vloss_thr_pct > 0 && vloss_pct >= vloss_thr_pct`. Comandi validi per stato: vedi `docs/ble-protocol.md`, sezione Precisazioni.
-- FW-15: se il drift corretto supera `LOW_QUALITY_RESIDUAL_MS` la rep e' marcata bassa qualita' (flag).
-- FW-16: la serie termina con: tasto A, comando STOP_SET, soglia di perdita superata (se attiva), o `SET_IDLE_TIMEOUT_MS` senza rep.
-- FW-17: tutta l'elaborazione avviene sul dispositivo; il telefono non e' necessario per misurare.
+**Algorithm**
+- FW-07: orientation is estimated with 6-axis Madgwick (`MADGWICK_BETA`), initialized from the gravity measured at rest.
+- FW-08: the earth-frame vertical acceleration is obtained by rotating the sample and subtracting 9.81 m/s^2.
+- FW-09: the sensor is "still" when |acc|-1 g and |gyro| stay below threshold for `STILL_MIN_MS`.
+- FW-10: a rep is a still -> motion -> still segment with duration between `REP_MIN_MS` and `REP_MAX_MS` and concentric ROM >= `REP_MIN_ROM_M`. Non-conforming segments are discarded without notification.
+- FW-11: the velocity of each rep is obtained by integrating the vertical acceleration only during the segment, with linear drift correction so that the final velocity is 0 (ZUPT).
+- FW-12: the concentric phase is defined by velocity > `CONC_MIN_VEL_MS` (after the eccentric phase for `EccentricFirst`, immediately for `ConcentricFirst`).
+- FW-13: for each rep, MCV, peak velocity, ROM, concentric and total duration are computed (struct `RepMetrics`).
+- FW-14: `vloss_pct = clamp(round(100 * (best_mcv - mcv) / best_mcv), 0, 100)`, with `best_mcv` = maximum MCV of the set so far including the current rep. Threshold flag (and threshold beep) when `vloss_thr_pct > 0 && vloss_pct >= vloss_thr_pct`. Valid commands per state: see `docs/ble-protocol.md`, Clarifications section.
+- FW-15: if the corrected drift exceeds `LOW_QUALITY_RESIDUAL_MS` the rep is marked low quality (flag).
+- FW-16: the set ends with: button A, STOP_SET command, loss threshold exceeded (if active), or `SET_IDLE_TIMEOUT_MS` without reps.
+- FW-17: all processing happens on the device; the phone is not needed to measure.
 
-**Display e audio**
-- FW-18: contenuti per stato (sezione 5); aggiornamento schermo a ~10 Hz, mai nel percorso di campionamento.
-- FW-19: se il beep e' attivo: bip breve a fine rep, bip grave doppio quando la soglia di perdita e' superata.
-- FW-20: lo schermo si spegne dopo `DISPLAY_SLEEP_MS` senza input ne' serie attiva; qualsiasi tasto lo riaccende.
+**Display and audio**
+- FW-18: content per state (section 5); screen refresh at ~10 Hz, never in the sampling path.
+- FW-19: if the beep is enabled: short beep at the end of a rep, low double beep when the loss threshold is exceeded.
+- FW-20: the screen turns off after `DISPLAY_SLEEP_MS` with no input and no active set; any button turns it back on.
 
-**BLE** (dettagli in `docs/ble-protocol.md`)
-- FW-21: advertising come `VBT-XXXX` con il servizio definito; una sola connessione.
-- FW-22: ogni rep valida produce una notifica Rep entro 100 ms dalla fine del movimento.
-- FW-23: i comandi dell'app (start, stop, tare, soglia, beep, richiesta rep/stato) producono gli stessi effetti dei tasti.
-- FW-24: le ultime `REP_HISTORY` (64) rep della serie corrente e di quella precedente restano in RAM e possono essere rinviate.
-- FW-25: una disconnessione non interrompe una serie in corso; riconnettendosi l'app puo' risincronizzarsi.
-- FW-26: nessun dato personale e' trasmesso o salvato; BLE senza pairing obbligatorio (v1).
+**BLE** (details in `docs/ble-protocol.md`)
+- FW-21: advertising as `VBT-XXXX` with the defined service; a single connection.
+- FW-22: every valid rep produces a Rep notification within 100 ms of the end of the movement.
+- FW-23: app commands (start, stop, tare, threshold, beep, rep/status request) produce the same effects as the buttons.
+- FW-24: the last `REP_HISTORY` (64) reps of the current and previous set stay in RAM and can be resent.
+- FW-25: a disconnection does not interrupt a set in progress; on reconnecting the app can resynchronize.
+- FW-26: no personal data is transmitted or stored; BLE without mandatory pairing (v1).
 
-**Log seriale (step 3)**
-- FW-27: una modalita' di build/avvio "raw log" trasmette tutti i campioni IMU via USB seriale nel formato della sezione 6, senza eseguire l'algoritmo.
-- FW-28: nel log nessuna perdita di campioni a 400 Hz per almeno 5 minuti (verificabile dai timestamp).
+**Serial log (step 3)**
+- FW-27: a "raw log" build/boot mode streams all IMU samples over USB serial in the format of section 6, without running the algorithm.
+- FW-28: no sample loss in the log at 400 Hz for at least 5 minutes (verifiable from the timestamps).
 
-## 4. Requisiti non funzionali
+## 4. Non-functional requirements
 
-- NF-01: ciclo di campionamento e algoritmo non devono bloccarsi su display, BLE o seriale (nessun `delay()` nel percorso critico).
-- NF-02: tempo di elaborazione per campione < 1 ms (budget: 2,5 ms a 400 Hz); la fine rep (integrazione del segmento) < 20 ms.
-- NF-03: RAM per i buffer dell'algoritmo < 64 KB (6 s x 400 Hz x 4 B x 3 array ~ 29 KB). La PSRAM non e' necessaria.
-- NF-04: moduli algoritmici (`orientation`, `velocity`, `rep_detector`, `metrics`, `Calibrator`) senza `#include <Arduino.h>` / `M5*`; usano solo `types.h` e `config.h`.
-- NF-05: un principiante deve poter leggere ogni header in pochi minuti: commenti in italiano, nomi chiari, una responsabilita' per file.
-- NF-06: nessuna allocazione dinamica nel loop di campionamento.
+- NF-01: the sampling loop and the algorithm must not block on display, BLE or serial (no `delay()` in the critical path).
+- NF-02: processing time per sample < 1 ms (budget: 2.5 ms at 400 Hz); end of rep (segment integration) < 20 ms.
+- NF-03: RAM for the algorithm buffers < 64 KB (6 s x 400 Hz x 4 B x 3 arrays ~ 29 KB). PSRAM is not needed.
+- NF-04: algorithm modules (`orientation`, `velocity`, `rep_detector`, `metrics`, `Calibrator`) without `#include <Arduino.h>` / `M5*`; they use only `types.h` and `config.h`.
+- NF-05: a beginner must be able to read each header in a few minutes: comments in English, clear names, one responsibility per file.
+- NF-06: no dynamic allocation in the sampling loop.
 
-### Budget energetico (stima, da misurare)
+### Energy budget (estimate, to be measured)
 
-| Voce | Corrente tipica | Note |
+| Item | Typical current | Notes |
 |---|---|---|
-| ESP32-S3 attivo 240 MHz, BLE connesso | ~50-70 mA | puo' scendere clock a 160 MHz |
-| IMU BMI270 400 Hz | ~1 mA | |
-| Display acceso | ~15-25 mA | spento dopo 30 s |
-| Totale sessione allenamento | ~60-80 mA | ~3 ore con 250 mAh |
+| ESP32-S3 active 240 MHz, BLE connected | ~50-70 mA | clock can be lowered to 160 MHz |
+| BMI270 IMU 400 Hz | ~1 mA | |
+| Display on | ~15-25 mA | off after 30 s |
+| Total training session | ~60-80 mA | ~3 hours with 250 mAh |
 
-- NF-07: autonomia in uso >= 2 ore (batteria 250 mAh, schermo al 50 %).
-- NF-08: in IDLE inattivo per `DEEP_SLEEP_MS` il dispositivo va in deep sleep; un tasto lo risveglia.
-- NF-09: il livello batteria e' mostrato sul display e inviato in Status (flag carica incluso).
+- NF-07: battery life in use >= 2 hours (250 mAh battery, screen at 50 %).
+- NF-08: when inactive in IDLE for `DEEP_SLEEP_MS` the device goes into deep sleep; a button wakes it.
+- NF-09: the battery level is shown on the display and sent in Status (charging flag included).
 
-## 5. Contenuto del display (135x240 verticale)
+## 5. Display content (135x240 portrait)
 
-- **IDLE**: nome `VBT-XXXX`, icona BLE (connesso/no), batteria, "A = calibra".
-- **CALIBRATING**: "Tieni fermo", barra di progresso.
-- **READY**: "Pronto", soglia perdita (es. "Stop a 20 %"), batteria, BLE. "A = inizia".
-- **SET_ACTIVE**: numero rep (grande), MCV ultima rep in m/s (grande), perdita % ultima rep (colore verde < soglia, rosso oltre), barra velocita' live, miglior MCV.
-- **SET_DONE**: rep totali, miglior MCV, media MCV, perdita finale, "A = nuova serie".
-- **ERROR**: messaggio breve per codice ("IMU non risponde", "Muoviti meno: ripeti calibrazione").
+- **IDLE**: name `VBT-XXXX`, BLE icon (connected/not), battery, "A = calibrate".
+- **CALIBRATING**: "Hold still", progress bar.
+- **READY**: "Ready", loss threshold (e.g. "Stop at 20 %"), battery, BLE. "A = start".
+- **SET_ACTIVE**: rep number (large), MCV of the last rep in m/s (large), loss % of the last rep (green < threshold, red beyond), live velocity bar, best MCV.
+- **SET_DONE**: total reps, best MCV, mean MCV, final loss, "A = new set".
+- **ERROR**: short message per code ("IMU not responding", "Move less: repeat calibration").
 
-## 6. Log seriale dei dati grezzi (step 3)
+## 6. Raw data serial log (step 3)
 
-Trasporto: USB CDC (porta seriale dell'USB-C), testo ASCII, una riga per campione, fine riga `\n`. Il PC registra con uno script Python o `pio device monitor > file.csv`.
+Transport: USB CDC (the USB-C serial port), ASCII text, one line per sample, line ending `\n`. The PC records with a Python script or `pio device monitor > file.csv`.
 
-Intestazione (prima riga, una volta):
+Header (first line, once):
 ```
 # VBT raw v1 rate_hz=400 acc_fs_g=16 gyro_fs_dps=2000 units=g,dps
 t_us,ax,ay,az,gx,gy,gz
 ```
-Righe campione:
+Sample lines:
 ```
 1234567,0.0123,-0.0045,0.9987,0.12,-0.05,0.01
 ```
-| Colonna | Tipo | Unita' | Decimali |
+| Column | Type | Unit | Decimals |
 |---|---|---|---|
-| `t_us` | uint32 | microsecondi dall'avvio (riparte da 0 dopo ~71 min) | - |
+| `t_us` | uint32 | microseconds since boot (restarts from 0 after ~71 min) | - |
 | `ax,ay,az` | float | g | 4 |
-| `gx,gy,gz` | float | gradi/s | 2 |
+| `gx,gy,gz` | float | degrees/s | 2 |
 
-Marcatori (righe che iniziano con `#`, ignorate da un parser CSV con `comment='#'`):
-`#SET_START,<t_us>`, `#SET_STOP,<t_us>`, `#TARE,<t_us>`, `#NOTE,<t_us>` (tasto B per segnare un evento, es. "rep fatta" durante l'acquisizione di riferimento).
+Markers (lines starting with `#`, ignored by a CSV parser with `comment='#'`):
+`#SET_START,<t_us>`, `#SET_STOP,<t_us>`, `#TARE,<t_us>`, `#NOTE,<t_us>` (button B to mark an event, e.g. "rep done" during reference acquisition).
 
-Dimensione: ~45 byte/riga x 400 = ~18 kB/s ~ 1 MB/minuto. Il valore di baud e' irrilevante su USB-CDC.
-Il log non esegue l'algoritmo (FW-27) e ha priorita' su display/BLE (BLE spento in questa modalita').
+Size: ~45 bytes/line x 400 = ~18 kB/s ~ 1 MB/minute. The baud rate is irrelevant on USB-CDC.
+The log does not run the algorithm (FW-27) and has priority over display/BLE (BLE off in this mode).
 
-## 7. Test di accettazione (indicativi)
+## 7. Acceptance tests (indicative)
 
-- Rep a mano su 0,5 m a velocita' circa nota: MCV entro 0,05 m/s dal riferimento video (step 7).
-- Sensore fermo 60 s in SET_ACTIVE: nessuna rep rilevata.
-- 5 rep lente vs 5 rep veloci: l'ordine delle MCV rispecchia la realta'.
-- Spegnere BLE sul telefono a meta' serie e riaccendere: tutte le rep arrivano senza duplicati (FW-24/25).
+- Hand rep over 0.5 m at roughly known velocity: MCV within 0.05 m/s of the video reference (step 7).
+- Sensor still for 60 s in SET_ACTIVE: no rep detected.
+- 5 slow reps vs 5 fast reps: the order of the MCVs reflects reality.
+- Turn off BLE on the phone mid-set and turn it back on: all reps arrive without duplicates (FW-24/25).
 
-## 8. Domande aperte
+## 8. Open questions
 
-- Orientamento di montaggio sul bilanciere e posizione (centro bilanciere vs manicotto): influisce sull'asse verticale e sul tipo di movimento.
-- Soglia di perdita predefinita: 20 % va bene come partenza?
-- Mappatura reale dei pulsanti dello StickS3 (da confermare sull'hardware).
-- Libreria BLE: NimBLE-Arduino (consigliata, piu' leggera) vs libreria inclusa.
+- Mounting orientation on the barbell and position (barbell center vs. sleeve): affects the vertical axis and the type of movement.
+- Default loss threshold: is 20 % OK as a starting point?
+- Real button mapping of the StickS3 (to be confirmed on the hardware).
+- BLE library: NimBLE-Arduino (recommended, lighter) vs. the bundled library.

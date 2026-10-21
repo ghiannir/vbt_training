@@ -1,5 +1,5 @@
-// Server BLE con NimBLE-Arduino. Contratto: docs/ble-protocol.md.
-// Dipende dall'hardware: non va nei test native.
+// BLE server using NimBLE-Arduino. Contract: docs/ble-protocol.md.
+// Hardware-dependent: not for the native tests.
 #pragma once
 #include <stddef.h>
 #include <functional>
@@ -7,23 +7,23 @@
 
 class BleService {
  public:
-  // Chiamato da poll() per ogni comando scritto dall'app. args contiene 0..3 byte.
-  // Ritorna false se non valido: NimBLE non permette di rispondere con errore ATT 0x80,
-  // quindi il chiamante lo segnala con error_code=3 in Status.
+  // Called by poll() for every command written by the app. args holds 0..3 bytes.
+  // Returns false if invalid: NimBLE cannot answer with ATT error 0x80,
+  // so the caller reports it with error_code=3 in Status.
   using CommandHandler = std::function<bool(ble::Opcode op, const uint8_t* args, size_t len)>;
 
-  // Avvia GATT e advertising con nome "VBT-XXXX".
+  // Starts GATT and advertising with the name "VBT-XXXX".
   void begin(CommandHandler onCommand);
 
-  // Da chiamare nel loop: esegue i comandi ricevuti (arrivano dal task BLE, qui si passa al loop).
+  // Call from the loop: runs the received commands (they arrive on the BLE task, here they move to the loop).
   void poll();
 
   bool connected() const;
-  // true una volta per ogni nuova connessione: il chiamante aggiorna il valore di Status.
+  // true once per new connection: the caller refreshes the Status value.
   bool takeNewConnection();
   const char* name() const;
 
-  // Ognuna aggiorna il valore "read" e, se c'e' un client iscritto, manda la notifica.
+  // Each one updates the "read" value and, if a client is subscribed, sends the notification.
   void notifyRep(const ble::RepPayload& p);
   void notifyStatus(const ble::StatusPayload& p);
   void notifySummary(const ble::SummaryPayload& p);

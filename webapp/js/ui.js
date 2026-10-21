@@ -12,108 +12,108 @@ import { velocityAtLoad, loadAtVelocity } from "./lvprofile.js";
 /** @typedef {import("./lvprofile.js").OneRmEstimate} OneRmEstimate */
 /** @typedef {import("./lvprofile.js").LvPoint} LvPoint */
 
-/** Italian UI strings. */
+/** English UI strings. */
 export const STRINGS = Object.freeze({
   conn: Object.freeze({
-    disconnected: "Disconnesso",
-    connecting: "Connessione...",
-    connected: "Connesso",
-    reconnecting: "Riconnessione...",
+    disconnected: "Disconnected",
+    connecting: "Connecting...",
+    connected: "Connected",
+    reconnecting: "Reconnecting...",
   }),
   btn: Object.freeze({
-    connect: "Connetti",
-    reconnect: "Riconnetti",
-    disconnect: "Disconnetti",
-    busy: "Attendi...",
-    startSet: "AVVIA SERIE",
-    stopSet: "TERMINA SERIE",
-    wait: "ATTENDI...",
-    tare: "Tara",
-    endWorkout: "Fine allenamento",
-    endWorkoutConfirm: "Tocca ancora per confermare",
-    delete: "Elimina",
-    deleteConfirm: "Confermi? Tocca ancora",
-    dismiss: "Chiudi",
-    reload: "Ricarica",
-    exportJson: "Esporta JSON",
+    connect: "Connect",
+    reconnect: "Reconnect",
+    disconnect: "Disconnect",
+    busy: "Wait...",
+    startSet: "START SET",
+    stopSet: "END SET",
+    wait: "WAIT...",
+    tare: "Tare",
+    endWorkout: "End workout",
+    endWorkoutConfirm: "Tap again to confirm",
+    delete: "Delete",
+    deleteConfirm: "Sure? Tap again",
+    dismiss: "Dismiss",
+    reload: "Reload",
+    exportJson: "Export JSON",
   }),
   state: Object.freeze({
-    0: "Inattivo",
-    1: "Calibrazione...",
-    2: "Pronto",
-    3: "Serie in corso",
-    4: "Serie conclusa",
-    5: "Errore",
+    0: "Idle",
+    1: "Calibrating...",
+    2: "Ready",
+    3: "Set in progress",
+    4: "Set finished",
+    5: "Error",
   }),
   errors: Object.freeze({
-    1: "Errore sensore IMU",
-    2: "Calibrazione fallita: il sensore si e' mosso",
-    3: "Comando non valido",
+    1: "IMU sensor error",
+    2: "Calibration failed: the sensor moved",
+    3: "Invalid command",
   }),
-  level: Object.freeze({ ok: "OK", warn: "ATTENZIONE", alarm: "SOGLIA SUPERATA" }),
+  level: Object.freeze({ ok: "OK", warn: "WARNING", alarm: "THRESHOLD EXCEEDED" }),
   live: Object.freeze({
     rep: (/** @type {number} */ n) => `Rep ${n}`,
     noRep: "Rep -",
-    peak: "picco m/s",
-    lowQuality: "Stima dubbia per questa ripetizione",
-    lostReps: "Alcune ripetizioni non sono state recuperate",
-    threshold: (/** @type {number} */ t) => (t > 0 ? `soglia ${t}%` : "soglia off"),
-    set: (/** @type {number} */ n) => `Serie ${n}`,
-    reps: (/** @type {number} */ n) => `${n} ${n === 1 ? "rep" : "rep"}`,
-    empty: "Nessuna ripetizione ancora.",
-    best: "migliore",
+    peak: "peak m/s",
+    lowQuality: "Doubtful estimate for this rep",
+    lostReps: "Some reps could not be recovered",
+    threshold: (/** @type {number} */ t) => (t > 0 ? `threshold ${t}%` : "threshold off"),
+    set: (/** @type {number} */ n) => `Set ${n}`,
+    reps: (/** @type {number} */ n) => `${n} ${n === 1 ? "rep" : "reps"}`,
+    empty: "No reps yet.",
+    best: "best",
   }),
   banner: Object.freeze({
-    unsupported: "Apri questa pagina in Bluefy per usare il Bluetooth.",
-    demo: "Modalita demo: sensore simulato, nessun Bluetooth.",
-    update: "Aggiornamento disponibile.",
-    suspended: "La pagina era in background: alcune ripetizioni potrebbero mancare. Risincronizzo il sensore.",
-    memoryOnly: "Archivio non disponibile (modalita privata?): i dati non verranno salvati.",
-    backupNever: "Non hai ancora fatto un backup dei dati.",
-    backupOld: (/** @type {number} */ d) => `Ultimo backup: ${d} giorni fa.`,
-    noWakeLock: "Il blocco schermo non e' supportato: tieni lo schermo acceso a mano.",
+    unsupported: "Open this page in Bluefy to use Bluetooth.",
+    demo: "Demo mode: simulated sensor, no Bluetooth.",
+    update: "Update available.",
+    suspended: "The page was in the background: some reps may be missing. Resyncing with the sensor.",
+    memoryOnly: "Storage unavailable (private mode?): data will not be saved.",
+    backupNever: "You have not backed up your data yet.",
+    backupOld: (/** @type {number} */ d) => `Last backup: ${d} days ago.`,
+    noWakeLock: "Screen wake lock is not supported: keep the screen on manually.",
   }),
   history: Object.freeze({
-    empty: "Nessun allenamento salvato.",
-    all: "Tutti gli esercizi",
-    sets: (/** @type {number} */ n) => `${n} ${n === 1 ? "serie" : "serie"}`,
-    noLoad: "carico ?",
-    bestMcv: "migliore",
-    meanMcv: "media",
-    lossFinal: "perdita finale",
-    inProgress: "in corso",
-    persistent: "I dati sono salvati su questo dispositivo. Esporta un backup ogni tanto.",
-    volatile: "Archivio non persistente: i dati si perdono alla chiusura della pagina.",
+    empty: "No workouts saved.",
+    all: "All exercises",
+    sets: (/** @type {number} */ n) => `${n} ${n === 1 ? "set" : "sets"}`,
+    noLoad: "load ?",
+    bestMcv: "best",
+    meanMcv: "mean",
+    lossFinal: "final loss",
+    inProgress: "in progress",
+    persistent: "Data is saved on this device. Export a backup now and then.",
+    volatile: "Storage is not persistent: data is lost when the page is closed.",
   }),
   profile: Object.freeze({
-    insufficient: "Dati insufficienti",
-    estimate: "1RM stimato",
-    range: "intervallo",
+    insufficient: "Insufficient data",
+    estimate: "Estimated 1RM",
+    range: "range",
     r2: "R²",
-    mvt: "vel. minima",
-    excluded: (/** @type {number} */ n) => `${n} ${n === 1 ? "serie esclusa" : "serie escluse"} (carico non inserito)`,
+    mvt: "min. velocity",
+    excluded: (/** @type {number} */ n) => `${n} ${n === 1 ? "set" : "sets"} excluded (load not entered)`,
     expected: (/** @type {number} */ v) => `${v.toFixed(2)} m/s`,
     loadFor: (/** @type {number} */ kg) => `${Math.round(kg * 10) / 10} kg`,
     needMore: (/** @type {number} */ n) =>
-      `Servono almeno 3 carichi diversi (ne hai ${n}), meglio 4+ con 15 kg di intervallo.`,
-    badSlope: "La velocita non cala all'aumentare del carico: stima non valida.",
-    noData: "Nessuna serie con carico per questo esercizio.",
+      `At least 3 different loads are needed (you have ${n}), ideally 4+ spanning 15 kg.`,
+    badSlope: "Velocity does not drop as load increases: invalid estimate.",
+    noData: "No set with a load for this exercise.",
   }),
   settings: Object.freeze({
     version: "VBT Training",
   }),
   toast: Object.freeze({
-    copied: "Fatto",
+    copied: "Done",
   }),
 });
 
 /** Exercise keys match DEFAULT_MVT in lvprofile.js. */
 export const EXERCISES = Object.freeze([
   { key: "squat", label: "Squat" },
-  { key: "bench", label: "Panca piana" },
-  { key: "deadlift", label: "Stacco" },
-  { key: "press", label: "Military press" },
-  { key: "generic", label: "Generico" },
+  { key: "bench", label: "Bench press" },
+  { key: "deadlift", label: "Deadlift" },
+  { key: "press", label: "Overhead press" },
+  { key: "generic", label: "Generic" },
 ]);
 
 /** @param {string} key */
@@ -214,7 +214,7 @@ export function initUi(handlers) {
 
   window.addEventListener("error", (e) => log(`${e.message} (${e.filename?.split("/").pop()}:${e.lineno})`, "error"));
   window.addEventListener("unhandledrejection", (e) =>
-    log(`Promise rifiutata: ${/** @type {any} */ (e.reason)?.message ?? e.reason}`, "error"));
+    log(`Promise rejected: ${/** @type {any} */ (e.reason)?.message ?? e.reason}`, "error"));
 
   // Audio must be unlocked by a gesture (WA-40): any first touch does it.
   document.addEventListener("pointerdown", unlockAudio, { passive: true });
@@ -273,7 +273,7 @@ export function initUi(handlers) {
   $("btn-gh-test").addEventListener("click", async () => {
     ghChanged();
     const out = $("gh-test-result");
-    out.textContent = "Verifica in corso...";
+    out.textContent = "Checking...";
     $("btn-gh-test").disabled = true;
     try {
       const r = await H.onGithubTest();
@@ -397,12 +397,12 @@ export function showGithubStatus(st) {
   const chip = $("gh-status");
   chip.hidden = !st.enabled;
   chip.dataset.state = st.error ? "error" : st.busy || st.pending ? "pending" : "ok";
-  chip.title = st.error ? `GitHub: ${st.error}` : "Salvataggio su GitHub";
+  chip.title = st.error ? `GitHub: ${st.error}` : "GitHub sync";
   const parts = [];
-  if (st.lastAt) parts.push(`Ultimo salvataggio: ${new Date(st.lastAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`);
-  else parts.push("Nessun salvataggio ancora");
-  if (st.pending) parts.push(`In attesa: ${st.pending} ${st.pending === 1 ? "sessione" : "sessioni"}`);
-  if (st.error) parts.push(`Errore: ${st.error}`);
+  if (st.lastAt) parts.push(`Last saved: ${new Date(st.lastAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`);
+  else parts.push("Nothing saved yet");
+  if (st.pending) parts.push(`Pending: ${st.pending} ${st.pending === 1 ? "session" : "sessions"}`);
+  if (st.error) parts.push(`Error: ${st.error}`);
   $("gh-sync").textContent = parts.join(" - ");
 }
 
@@ -483,7 +483,7 @@ function showBattery(pct, charging) {
   b.hidden = false;
   b.textContent = `${charging ? "+" : ""}${pct}%`;
   b.dataset.low = String(pct <= 15 && !charging);
-  b.title = charging ? "In carica" : "Batteria sensore";
+  b.title = charging ? "Charging" : "Sensor battery";
 }
 
 /** @param {DeviceStatus} status */
@@ -656,7 +656,7 @@ async function acquireWake() {
     s.addEventListener("release", () => { if (ui.wakeSentinel === s) ui.wakeSentinel = null; });
     ui.wakeSentinel = s;
   } catch (e) {
-    log(`Wake lock non ottenuto: ${/** @type {any} */ (e)?.message ?? e}`, "warn");
+    log(`Wake lock not acquired: ${/** @type {any} */ (e)?.message ?? e}`, "warn");
   }
 }
 
@@ -717,7 +717,7 @@ export function log(message, level = "info") {
   const box = $("log");
   if (level !== "info") console[level === "error" ? "error" : "warn"](message);
   if (!box) return;
-  const time = new Date().toLocaleTimeString("it-IT");
+  const time = new Date().toLocaleTimeString("en-GB");
   box.textContent += `${time} ${level === "info" ? "" : level.toUpperCase() + " "}${message}\n`;
   const lines = box.textContent.split("\n");
   if (lines.length > 300) box.textContent = lines.slice(-250).join("\n");
@@ -755,7 +755,7 @@ export function showHistory(sessions) {
   renderHistory();
 }
 
-const dateFmt = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const dateFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 function renderHistory() {
   const root = $("history-list");
@@ -807,7 +807,7 @@ export function setProfileControls(exercise, mvt) {
 
 /**
  * @param {LvPoint[]} points
- * @param {OneRmEstimate|null} estimate  null => "dati insufficienti"
+ * @param {OneRmEstimate|null} estimate  null => "insufficient data"
  * @param {string} [reason]
  * @param {{ excluded?: number }} [extra]
  */

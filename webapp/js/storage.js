@@ -136,17 +136,17 @@ export function parseBackup(input) {
   try {
     obj = typeof input === "string" ? JSON.parse(input) : input;
   } catch {
-    throw new Error("File di backup non valido (JSON illeggibile)");
+    throw new Error("Invalid backup file (unreadable JSON)");
   }
   if (!obj || typeof obj !== "object" || !Array.isArray(obj.sessions)) {
-    throw new Error("File di backup non valido (mancano le sessioni)");
+    throw new Error("Invalid backup file (sessions missing)");
   }
   const version = obj.schemaVersion;
   if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
-    throw new Error("File di backup non valido (schemaVersion mancante)");
+    throw new Error("Invalid backup file (schemaVersion missing)");
   }
   if (version > SCHEMA_VERSION) {
-    throw new Error(`Backup creato da una versione piu' recente (schema ${version}): aggiorna l'app`);
+    throw new Error(`Backup created by a newer version (schema ${version}): update the app`);
   }
   const sessions = obj.sessions.map(migrateSession);
   /** @type {BackupFile} */
@@ -166,7 +166,7 @@ export function parseBackup(input) {
  */
 export function migrateSession(s) {
   if (!s || typeof s !== "object" || typeof s.id !== "string" || !Array.isArray(s.sets)) {
-    throw new Error("File di backup non valido (sessione malformata)");
+    throw new Error("Invalid backup file (malformed session)");
   }
   return {
     ...s,
@@ -174,7 +174,7 @@ export function migrateSession(s) {
     endedAt: typeof s.endedAt === "number" ? s.endedAt : null,
     sets: s.sets.map((/** @type {any} */ set) => {
       if (!set || typeof set !== "object" || typeof set.id !== "string") {
-        throw new Error("File di backup non valido (serie malformata)");
+        throw new Error("Invalid backup file (malformed set)");
       }
       return {
         ...set,
@@ -380,7 +380,7 @@ function done(tx) {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new Error("transazione annullata"));
+    tx.onabort = () => reject(tx.error ?? new Error("transaction aborted"));
   });
 }
 

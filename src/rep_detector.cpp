@@ -42,7 +42,7 @@ bool RepDetector::update(uint32_t t_us, float aUp, bool still) {
       if (preN_ < PREROLL) preN_++;
       return false;
     }
-    // Inizio movimento: si parte dai campioni fermi appena precedenti.
+    // Movement start: begin from the still samples just before.
     moving_ = true;
     overflow_ = false;
     n_ = 0;
@@ -57,7 +57,7 @@ bool RepDetector::update(uint32_t t_us, float aUp, bool still) {
   }
   if (!still) return false;
 
-  // Di nuovo fermo da STILL_MIN_MS: movimento concluso.
+  // Still again for STILL_MIN_MS: movement finished.
   moving_ = false;
   preN_ = preHead_ = 0;
   seg_ = {buf_, n_, startUs_, t_us};

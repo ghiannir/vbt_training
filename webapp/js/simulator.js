@@ -213,7 +213,7 @@ export class SimulatedBle {
   }
 
   async readSetSummary() {
-    if (!this.#lastSummary) throw new Error("Nessuna serie conclusa.");
+    if (!this.#lastSummary) throw new Error("No finished set.");
     return this.#lastSummary;
   }
 
@@ -221,9 +221,9 @@ export class SimulatedBle {
 
   /** @param {string} what @param {number[]} validStates */
   #require(what, validStates) {
-    if (!this.#linkUp) throw new Error("Sensore non connesso.");
+    if (!this.#linkUp) throw new Error("Sensor not connected.");
     if (!validStates.includes(this.#deviceState)) {
-      throw new Error(`Comando non accettato dal sensore (${what} non valido nello stato attuale)`);
+      throw new Error(`Command not accepted by the sensor (${what} not valid in the current state)`);
     }
   }
 
@@ -263,14 +263,14 @@ export class SimulatedBle {
 
   /** @param {number} pct */
   async setThreshold(pct) {
-    if (!this.#linkUp) throw new Error("Sensore non connesso.");
+    if (!this.#linkUp) throw new Error("Sensor not connected.");
     this.#thresholdPct = pct;
     this.#emitStatus();
   }
 
   /** @param {boolean} on */
   async setBeep(on) {
-    if (!this.#linkUp) throw new Error("Sensore non connesso.");
+    if (!this.#linkUp) throw new Error("Sensor not connected.");
     this.#beep = on;
     this.#emitStatus();
   }
@@ -285,7 +285,7 @@ export class SimulatedBle {
    * @param {number} fromRep
    */
   async requestReps(setId, fromRep) {
-    if (!this.#linkUp) throw new Error("Sensore non connesso.");
+    if (!this.#linkUp) throw new Error("Sensor not connected.");
     const reps = this.#buffer.get(setId) ?? [];
     for (const dv of reps) {
       if (dv.getUint8(1) >= fromRep) this.#deliverRep(dv);

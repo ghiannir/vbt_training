@@ -1,4 +1,4 @@
-// Display ST7789 135x240 (verticale), pulsanti e beep. Usa M5Unified: non va nei test native.
+// ST7789 135x240 display (portrait), buttons and beep. Uses M5Unified: not for the native tests.
 #pragma once
 #include <stdint.h>
 #include "ble_protocol.h"
@@ -10,10 +10,10 @@ class Ui {
  public:
   void begin();
 
-  // Legge i pulsanti (chiamare nel loop). Ritorna l'evento avvenuto, o None.
+  // Reads the buttons (call in the loop). Returns the event that occurred, or None.
   Button poll();
 
-  // Ridisegnano solo se qualcosa e' cambiato (max ~10 Hz).
+  // They redraw only if something changed (max ~10 Hz).
   void showIdle(uint8_t batteryPct, bool bleConnected);
   void showCalibrating(uint8_t progressPct);
   void showReady(uint8_t batteryPct, bool bleConnected, uint8_t thresholdPct);

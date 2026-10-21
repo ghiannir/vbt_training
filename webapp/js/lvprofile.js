@@ -80,7 +80,7 @@ export function pointsFromSets(sets) {
  */
 export function fitLinear(points) {
   const distinct = new Set(points.map((p) => p.loadKg)).size;
-  if (distinct < 3) throw new Error("Dati insufficienti: servono almeno 3 carichi distinti");
+  if (distinct < 3) throw new Error("Insufficient data: at least 3 distinct loads are needed");
   const n = points.length;
   let sx = 0;
   let sy = 0;
@@ -120,7 +120,7 @@ export function fitLinear(points) {
  * @returns {number} kg
  */
 export function loadAtVelocity(fit, mvt) {
-  if (!(fit.slope < 0)) throw new Error("Pendenza non negativa: stima impossibile");
+  if (!(fit.slope < 0)) throw new Error("Non-negative slope: estimate impossible");
   return (mvt - fit.intercept) / fit.slope;
 }
 
@@ -148,11 +148,11 @@ export function estimateOneRm(points, mvt) {
   const half = fit.stdError / Math.abs(fit.slope);
   /** @type {string[]} */
   const warnings = [];
-  if (fit.r2 < 0.9) warnings.push("R2 < 0.90: relazione carico-velocita' poco lineare");
+  if (fit.r2 < 0.9) warnings.push("R2 < 0.90: load-velocity relationship not very linear");
   const loads = points.map((p) => p.loadKg);
-  if (Math.max(...loads) - Math.min(...loads) < 15) warnings.push("Intervallo di carichi < 15 kg: stima poco affidabile");
-  if (new Set(loads).size < 4) warnings.push("Meno di 4 carichi: stima poco affidabile");
+  if (Math.max(...loads) - Math.min(...loads) < 15) warnings.push("Load range < 15 kg: estimate not very reliable");
+  if (new Set(loads).size < 4) warnings.push("Fewer than 4 loads: estimate not very reliable");
   const maxLoad = Math.max(...loads);
-  if (oneRmKg < maxLoad) warnings.push("1RM stimato inferiore al carico massimo provato");
+  if (oneRmKg < maxLoad) warnings.push("Estimated 1RM is below the heaviest load tested");
   return { oneRmKg, lowKg: oneRmKg - half, highKg: oneRmKg + half, mvt, fit, warnings };
 }

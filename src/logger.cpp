@@ -1,4 +1,4 @@
-// Log CSV dei campioni grezzi su USB seriale (firmware/REQUIREMENTS.md, sezione 6).
+// CSV log of raw samples over USB serial (firmware/REQUIREMENTS.md, section 6).
 #include "logger.h"
 
 #include <Arduino.h>
@@ -12,7 +12,7 @@ void RawLogger::begin() {
 }
 
 void RawLogger::logSample(const ImuSample& s) {
-  // Senza un PC che legge, il buffer USB si riempie: meglio perdere righe di log che bloccare il ciclo.
+  // Without a PC reading, the USB buffer fills up: better to lose log lines than block the loop.
   if (Serial.availableForWrite() < 64) return;
   Serial.printf("%lu,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f\n", (unsigned long)s.t_us, s.acc.x, s.acc.y, s.acc.z,
                 s.gyro.x, s.gyro.y, s.gyro.z);

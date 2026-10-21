@@ -1,136 +1,136 @@
-# Protocollo BLE firmware <-> web app
+# BLE protocol: firmware <-> web app
 
-**Stato: concordato (v1)** - allineato con `webapp/js/protocol.js` (UUID, dimensioni, opcode); aggiunti vettori di test in fondo.
+**Status: agreed (v1)** - aligned with `webapp/js/protocol.js` (UUIDs, sizes, opcodes); test vectors added at the end.
 
-Questo file e' il contratto unico tra firmware (`include/ble_protocol.h`) e web app. Se cambia qui, cambia in entrambi.
-Proprietario: agente firmware. La web app propone modifiche, non edita questo file.
+This file is the single contract between the firmware (`include/ble_protocol.h`) and the web app. If it changes here, it changes in both.
+Owner: firmware agent. The web app proposes changes; it does not edit this file.
 
-## Regole generali
+## General rules
 
-- Tutti gli interi multi-byte sono **little-endian** (in JS: `DataView.getUint16(off, true)`).
-- Versione protocollo: **1** (campo `proto_version` della caratteristica Status).
-- Tutti i payload sono **<= 20 byte** (MTU ATT di default 23): funzionano anche senza negoziazione.
-- Velocita' in **mm/s**, distanze in **mm**, tempi in **ms**, percentuali in **%** (interi). Niente float sul filo.
-- Nome dispositivo (advertising): `VBT-XXXX` dove XXXX = ultimi 2 byte del MAC in esadecimale (es. `VBT-A3F1`).
-  La web app filtra con `namePrefix: "VBT-"` e dichiara il servizio in `optionalServices`.
-- Il dispositivo supporta **una sola connessione** alla volta. Dopo la disconnessione riprende l'advertising.
+- All multi-byte integers are **little-endian** (in JS: `DataView.getUint16(off, true)`).
+- Protocol version: **1** (`proto_version` field of the Status characteristic).
+- All payloads are **<= 20 bytes** (default ATT MTU 23): they also work without negotiation.
+- Velocities in **mm/s**, distances in **mm**, times in **ms**, percentages in **%** (integers). No floats on the wire.
+- Device name (advertising): `VBT-XXXX` where XXXX = last 2 bytes of the MAC in hexadecimal (e.g. `VBT-A3F1`).
+  The web app filters with `namePrefix: "VBT-"` and declares the service in `optionalServices`.
+- The device supports **a single connection** at a time. After disconnection it resumes advertising.
 
-## Servizio e caratteristiche
+## Service and characteristics
 
-Servizio: `b972a2b5-fe5d-481c-8293-5ad78d77ae5e`
+Service: `b972a2b5-fe5d-481c-8293-5ad78d77ae5e`
 
-| Nome | UUID | Proprieta' | Dimensione |
+| Name | UUID | Properties | Size |
 |---|---|---|---|
 | Rep | `89826146-e413-4d2a-9c5b-7882e6d4973c` | notify, read | 18 B |
 | Status | `74fe761a-78be-41fd-b4aa-d75e861395db` | notify, read | 12 B |
-| Command | `19407613-018f-4ad7-a1f9-9170de45328e` | write (con risposta) | 1..4 B |
+| Command | `19407613-018f-4ad7-a1f9-9170de45328e` | write (with response) | 1..4 B |
 | SetSummary | `1bea91e2-4768-45a9-8498-f412cba0add8` | notify, read | 12 B |
 | Live | `8e3b1485-73ca-4dd1-b16a-0b3da91237f2` | notify | 4 B |
 
-### Rep (una notifica per ripetizione conclusa)
+### Rep (one notification per completed repetition)
 
-| Off | Tipo | Campo | Note |
+| Off | Type | Field | Notes |
 |---|---|---|---|
-| 0 | u8 | `set_id` | contatore serie, 1..255 poi riparte da 1 |
-| 1 | u8 | `rep_index` | 1-based dentro la serie |
-| 2 | u16 | `mcv_mmps` | velocita' media concentrica (MCV) |
-| 4 | u16 | `peak_mmps` | velocita' di picco concentrica |
-| 6 | u16 | `rom_mm` | escursione verticale della fase concentrica |
-| 8 | u16 | `conc_ms` | durata fase concentrica |
-| 10 | u16 | `rep_ms` | durata totale rep (eccentrica + concentrica) |
-| 12 | u8 | `vloss_pct` | perdita di velocita' vs miglior rep della serie finora (0 per la rep migliore) |
-| 13 | u8 | `flags` | bit0 soglia perdita superata, bit1 nuova rep migliore, bit2 rep di bassa qualita' (stima dubbia) |
-| 14 | u32 | `t_ms` | millisecondi dall'inizio serie alla fine della rep |
+| 0 | u8 | `set_id` | set counter, 1..255 then wraps back to 1 |
+| 1 | u8 | `rep_index` | 1-based within the set |
+| 2 | u16 | `mcv_mmps` | mean concentric velocity (MCV) |
+| 4 | u16 | `peak_mmps` | peak concentric velocity |
+| 6 | u16 | `rom_mm` | vertical range of motion of the concentric phase |
+| 8 | u16 | `conc_ms` | duration of the concentric phase |
+| 10 | u16 | `rep_ms` | total rep duration (eccentric + concentric) |
+| 12 | u8 | `vloss_pct` | velocity loss vs. the best rep of the set so far (0 for the best rep) |
+| 13 | u8 | `flags` | bit0 loss threshold exceeded, bit1 new best rep, bit2 low-quality rep (doubtful estimate) |
+| 14 | u32 | `t_ms` | milliseconds from the start of the set to the end of the rep |
 
-Totale 18 B. `read` restituisce l'ultima rep.
+Total 18 B. `read` returns the last rep.
 
-### Status (stato del dispositivo)
+### Status (device state)
 
-| Off | Tipo | Campo | Note |
+| Off | Type | Field | Notes |
 |---|---|---|---|
 | 0 | u8 | `proto_version` | 1 |
 | 1 | u8 | `state` | 0 IDLE, 1 CALIBRATING, 2 READY, 3 SET_ACTIVE, 4 SET_DONE, 5 ERROR |
 | 2 | u8 | `battery_pct` | 0..100 |
-| 3 | u8 | `flags` | bit0 in carica, bit1 beep attivo, bit2 calibrazione valida |
-| 4 | u8 | `set_id` | serie corrente (o ultima conclusa) |
-| 5 | u8 | `rep_count` | rep nella serie corrente |
-| 6 | u8 | `vloss_thr_pct` | soglia perdita velocita' (0 = disattivata) |
-| 7 | u8 | `error_code` | 0 nessuno, 1 IMU, 2 calibrazione fallita (dispositivo mosso), 3 comando non valido |
-| 8 | u16 | `best_mcv_mmps` | miglior MCV della serie corrente |
-| 10 | u8 | `last_vloss_pct` | perdita dell'ultima rep |
+| 3 | u8 | `flags` | bit0 charging, bit1 beep enabled, bit2 calibration valid |
+| 4 | u8 | `set_id` | current (or last completed) set |
+| 5 | u8 | `rep_count` | reps in the current set |
+| 6 | u8 | `vloss_thr_pct` | velocity loss threshold (0 = disabled) |
+| 7 | u8 | `error_code` | 0 none, 1 IMU, 2 calibration failed (device moved), 3 invalid command |
+| 8 | u16 | `best_mcv_mmps` | best MCV of the current set |
+| 10 | u8 | `last_vloss_pct` | loss of the last rep |
 | 11 | u8 | reserved | 0 |
 
-Notificato a ogni cambio di stato/soglia/beep e almeno ogni 30 s per la batteria (non a ogni rep: per quelle c'e' Rep).
+Notified on every state/threshold/beep change and at least every 30 s for the battery (not on every rep: Rep covers that).
 
-### SetSummary (notifica a fine serie)
+### SetSummary (notification at end of set)
 
-| Off | Tipo | Campo | Note |
+| Off | Type | Field | Notes |
 |---|---|---|---|
 | 0 | u8 | `set_id` | |
 | 1 | u8 | `rep_count` | |
-| 2 | u8 | `stop_reason` | 0 pulsante, 1 comando app, 2 soglia perdita raggiunta, 3 timeout inattivita' |
-| 3 | u8 | `final_vloss_pct` | perdita dell'ultima rep |
+| 2 | u8 | `stop_reason` | 0 button, 1 app command, 2 loss threshold reached, 3 inactivity timeout |
+| 3 | u8 | `final_vloss_pct` | loss of the last rep |
 | 4 | u16 | `best_mcv_mmps` | |
-| 6 | u16 | `mean_mcv_mmps` | media MCV delle rep |
-| 8 | u16 | `duration_s` | durata serie |
+| 6 | u16 | `mean_mcv_mmps` | mean MCV of the reps |
+| 8 | u16 | `duration_s` | set duration |
 | 10 | u16 | reserved | 0 |
 
-`read` restituisce il riepilogo dell'ultima serie conclusa (tutti zero se nessuna).
+`read` returns the summary of the last completed set (all zeros if none).
 
-### Live (opzionale, solo durante SET_ACTIVE, ~10 Hz)
+### Live (optional, only during SET_ACTIVE, ~10 Hz)
 
-| Off | Tipo | Campo |
+| Off | Type | Field |
 |---|---|---|
-| 0 | i16 | `v_mmps` velocita' verticale istantanea stimata (+ = su) |
-| 2 | i16 | `h_mm` spostamento verticale dall'inizio della rep corrente |
+| 0 | i16 | `v_mmps` estimated instantaneous vertical velocity (+ = up) |
+| 2 | i16 | `h_mm` vertical displacement since the start of the current rep |
 
-La stima live non e' corretta dalla ZUPT: e' solo indicativa (barra/indicatore). I valori ufficiali sono quelli di Rep.
+The live estimate is not corrected by ZUPT: it is only indicative (bar/indicator). The official values are those in Rep.
 
-### Command (scrittura; byte 0 = opcode)
+### Command (write; byte 0 = opcode)
 
-| Opcode | Nome | Argomenti | Effetto |
+| Opcode | Name | Arguments | Effect |
 |---|---|---|---|
-| 0x01 | START_SET | - | da READY avvia una serie (equivale al pulsante) |
-| 0x02 | STOP_SET | - | termina la serie |
-| 0x03 | TARE | - | ricalibra a riposo (solo IDLE/READY/SET_DONE) |
-| 0x04 | SET_THRESHOLD | u8 `pct` (0 = off, 5..60) | soglia perdita velocita' |
-| 0x05 | SET_BEEP | u8 0/1 | abilita beep |
-| 0x06 | REQUEST_REPS | u8 `set_id`, u8 `from_rep` | rinvia via Rep le rep dalla `from_rep` (1-based) in poi |
-| 0x07 | REQUEST_STATUS | - | rinvia Status e SetSummary |
+| 0x01 | START_SET | - | from READY starts a set (equivalent to the button) |
+| 0x02 | STOP_SET | - | ends the set |
+| 0x03 | TARE | - | recalibrates at rest (only IDLE/READY/SET_DONE) |
+| 0x04 | SET_THRESHOLD | u8 `pct` (0 = off, 5..60) | velocity loss threshold |
+| 0x05 | SET_BEEP | u8 0/1 | enables beep |
+| 0x06 | REQUEST_REPS | u8 `set_id`, u8 `from_rep` | resends via Rep the reps from `from_rep` (1-based) onwards |
+| 0x07 | REQUEST_STATUS | - | resends Status and SetSummary |
 
-Comando sconosciuto, argomenti fuori range o non ammesso nello stato corrente: `error_code=3` in Status, notificato subito
-(la write riesce comunque: vedi "Precisazioni (round 2)"). Il firmware conserva in RAM le ultime **64 rep** della serie corrente e della precedente.
+Unknown command, out-of-range arguments, or command not allowed in the current state: `error_code=3` in Status, notified immediately
+(the write succeeds anyway: see "Clarifications (round 2)"). The firmware keeps the last **64 reps** of the current and previous set in RAM.
 
-## Riconnessione e risincronizzazione
+## Reconnection and resynchronization
 
-1. La serie **continua** anche se il telefono si disconnette (le rep restano in RAM).
-2. Alla riconnessione l'app: (a) abilita le notifiche su Status, Rep, SetSummary, Live; (b) legge Status;
-   (c) se `set_id`/`rep_count` sono piu' avanti di quanto l'app ha ricevuto, scrive `REQUEST_REPS(set_id, ultima_rep_nota+1)`;
-   (d) se `state==SET_DONE` legge SetSummary.
-3. Le rep rinviate hanno lo stesso formato e sono ordinate; l'app deve deduplicare per `(set_id, rep_index)`.
-4. Se `proto_version` e' diverso da quello atteso dall'app, l'app mostra "aggiorna firmware/app" e non usa il resto.
+1. The set **continues** even if the phone disconnects (the reps stay in RAM).
+2. On reconnection the app: (a) enables notifications on Status, Rep, SetSummary, Live; (b) reads Status;
+   (c) if `set_id`/`rep_count` are ahead of what the app has received, writes `REQUEST_REPS(set_id, last_known_rep+1)`;
+   (d) if `state==SET_DONE` reads SetSummary.
+3. Resent reps have the same format and are ordered; the app must deduplicate by `(set_id, rep_index)`.
+4. If `proto_version` differs from the one the app expects, the app shows "update firmware/app" and does not use the rest.
 
-## Note per la web app
+## Notes for the web app
 
-- Bluefy richiede un gesto utente (tap) per `requestDevice`.
-- Notifiche multiple ravvicinate: abilitare `startNotifications()` in sequenza (await), non in parallelo.
+- Bluefy requires a user gesture (tap) for `requestDevice`.
+- Multiple closely spaced notifications: enable `startNotifications()` sequentially (await), not in parallel.
 
-## Servizi standard
+## Standard services
 
-Il firmware **non** espone Battery Service (0x180F) ne' Device Information: la batteria e' in `Status.battery_pct`.
-La web app deve quindi dichiarare in `optionalServices` solo il servizio VBT.
+The firmware does **not** expose Battery Service (0x180F) or Device Information: the battery is in `Status.battery_pct`.
+The web app must therefore declare only the VBT service in `optionalServices`.
 
-## Vettori di test (esadecimale, little-endian)
+## Test vectors (hexadecimal, little-endian)
 
-Rep: set 1, rep 3, MCV 612 mm/s, picco 1010 mm/s, ROM 480 mm, conc 780 ms, rep 1650 ms, perdita 8 %, flags 0, t 12345 ms
+Rep: set 1, rep 3, MCV 612 mm/s, peak 1010 mm/s, ROM 480 mm, conc 780 ms, rep 1650 ms, loss 8 %, flags 0, t 12345 ms
 ```
 01 03 64 02 F2 03 E0 01 0C 03 72 06 08 00 39 30 00 00
 ```
-Status: versione 1, SET_ACTIVE, batteria 87 %, flags beep+calibrato (0x06), set 1, 3 rep, soglia 20 %, nessun errore, miglior MCV 640 mm/s, ultima perdita 8 %
+Status: version 1, SET_ACTIVE, battery 87 %, flags beep+calibrated (0x06), set 1, 3 reps, threshold 20 %, no error, best MCV 640 mm/s, last loss 8 %
 ```
 01 03 57 06 01 03 14 00 80 02 08 00
 ```
-SetSummary: set 1, 5 rep, stop per soglia (2), perdita finale 21 %, miglior 640, media 590 mm/s, durata 38 s
+SetSummary: set 1, 5 reps, stopped by threshold (2), final loss 21 %, best 640, mean 590 mm/s, duration 38 s
 ```
 01 05 02 15 80 02 4E 02 26 00 00 00
 ```
@@ -138,34 +138,34 @@ Live: v = +350 mm/s, h = -120 mm
 ```
 5E 01 88 FF
 ```
-Command REQUEST_REPS(set 1, da rep 4): `06 01 04`   SET_THRESHOLD 25 %: `04 19`
+Command REQUEST_REPS(set 1, from rep 4): `06 01 04`   SET_THRESHOLD 25 %: `04 19`
 
-## Precisazioni (round di revisione 1, concordate con `webapp`)
+## Clarifications (review round 1, agreed with `webapp`)
 
-1. **Perdita di velocita'**: `vloss_pct = clamp(round((best_mcv - mcv) / best_mcv * 100), 0, 100)`, dove `best_mcv` e' la migliore MCV della serie *incluse* la rep corrente (quindi 0 per la rep migliore). Il flag bit0 di Rep (soglia superata) e' 1 se `vloss_thr_pct > 0 && vloss_pct >= vloss_thr_pct` (>=, non >).
-2. **Comandi validi per stato** (altrimenti `error_code=3`, vedi Precisazioni round 2):
+1. **Velocity loss**: `vloss_pct = clamp(round((best_mcv - mcv) / best_mcv * 100), 0, 100)`, where `best_mcv` is the best MCV of the set *including* the current rep (so 0 for the best rep). The Rep flag bit0 (threshold exceeded) is 1 if `vloss_thr_pct > 0 && vloss_pct >= vloss_thr_pct` (>=, not >).
+2. **Valid commands per state** (otherwise `error_code=3`, see Clarifications round 2):
 
-| Comando | IDLE | CALIBRATING | READY | SET_ACTIVE | SET_DONE | ERROR |
+| Command | IDLE | CALIBRATING | READY | SET_ACTIVE | SET_DONE | ERROR |
 |---|---|---|---|---|---|---|
-| START_SET | no | no | si | no | **si** (diretto, senza passare da READY) | no |
-| STOP_SET | no | no | no | si | no | no |
-| TARE | si | no | si | no | si | si |
-| SET_THRESHOLD / SET_BEEP | si | si | si | si | si | si |
-| REQUEST_REPS / REQUEST_STATUS | sempre | sempre | sempre | sempre | sempre | sempre |
+| START_SET | no | no | yes | no | **yes** (direct, without going through READY) | no |
+| STOP_SET | no | no | no | yes | no | no |
+| TARE | yes | no | yes | no | yes | yes |
+| SET_THRESHOLD / SET_BEEP | yes | yes | yes | yes | yes | yes |
+| REQUEST_REPS / REQUEST_STATUS | always | always | always | always | always | always |
 
-   Dopo TARE riuscito lo stato diventa READY. Da SET_DONE restano validi START_SET e TARE senza timeout automatico.
-3. **Replay**: le rep rinviate da REQUEST_REPS arrivano sulla stessa caratteristica Rep, in ordine crescente di `rep_index`. Rep non piu' in RAM: non si invia nulla e non c'e' errore; l'app lo deduce da `Status.rep_count`.
-4. **set_id**: mai 0; va 1..255 poi riparte da 1. Dopo un riavvio del dispositivo riparte da 1: un Status con `set_id` minore di quello noto indica reboot (nuova epoca di sessione).
-5. **Ordine**: le notifiche Rep sono accodate in ordine e mai fuse. L'app rileva rep perse da buchi in `rep_index` e usa REQUEST_REPS.
-6. **Status in connessione**: la lettura subito dopo la connessione restituisce lo stato reale anche a serie in corso. Soglia e beep restano in RAM fino al riavvio (default da `config.h`); l'app puo' reinviarli a ogni connessione.
-7. **Advertising**: l'UUID a 128 bit va nel pacchetto di advertising (18 B), il nome `VBT-XXXX` nella scan response. Bluefy/Web Bluetooth vede entrambi.
-8. **Live**: opzionale; l'app puo' non iscriversi (il firmware non invia nulla senza iscritti).
+   After a successful TARE the state becomes READY. From SET_DONE, START_SET and TARE remain valid with no automatic timeout.
+3. **Replay**: the reps resent by REQUEST_REPS arrive on the same Rep characteristic, in ascending `rep_index` order. Reps no longer in RAM: nothing is sent and there is no error; the app infers it from `Status.rep_count`.
+4. **set_id**: never 0; goes 1..255 then wraps back to 1. After a device restart it starts again from 1: a Status with a `set_id` lower than the known one indicates a reboot (new session epoch).
+5. **Ordering**: Rep notifications are queued in order and never merged. The app detects lost reps from gaps in `rep_index` and uses REQUEST_REPS.
+6. **Status on connection**: reading right after connection returns the real state even with a set in progress. Threshold and beep stay in RAM until restart (defaults from `config.h`); the app may resend them on every connection.
+7. **Advertising**: the 128-bit UUID goes in the advertising packet (18 B), the `VBT-XXXX` name in the scan response. Bluefy/Web Bluetooth sees both.
+8. **Live**: optional; the app may not subscribe (the firmware sends nothing without subscribers).
 
-## Precisazioni (round 2, implementazione firmware)
+## Clarifications (round 2, firmware implementation)
 
-1. **Comandi non validi**: il firmware usa NimBLE-Arduino, che non puo' rispondere a una write con errore ATT `0x80`. La write quindi riesce sempre; un comando non valido (opcode sconosciuto, argomenti errati, non ammesso nello stato corrente) imposta `error_code=3` in Status e Status viene notificato subito. Un comando valido successivo riporta `error_code` a 0. La web app deve osservare Status dopo le write, non affidarsi a una write fallita.
-2. **Esecuzione asincrona**: i comandi sono accodati dal task BLE al loop principale e eseguiti entro pochi ms. Status viene notificato dopo ogni comando che cambia stato.
-3. **Avvio automatico**: in READY o SET_DONE, una rep valida rilevata senza START_SET avvia automaticamente una nuova serie (`set_id` incrementato, stato SET_ACTIVE), come se fosse arrivato START_SET. Il pulsante A del dispositivo alterna avvio/stop (`stop_reason` 0).
-4. **Fine serie**: il firmware per ora non ferma mai una serie per perdita di velocita' (`stop_reason` 2 non usato). Le serie terminano per pulsante, comando dell'app o dopo `SET_IDLE_TIMEOUT_MS` (60 s) senza rep (`stop_reason` 3).
-5. **Rilevamento riavvio**: una Rep con `set_id` inferiore puo' essere il replay della serie precedente (conservata in RAM); solo uno Status con `set_id` inferiore all'ultimo noto indica un riavvio. La web app deve invocare il rilevamento a ogni Status.
-6. **CALIBRATING**: lo stato non e' ancora usato; il dispositivo passa da IDLE a READY quando rileva per la prima volta di essere fermo (allora il flag di calibrazione valida, bit2, e' impostato).
+1. **Invalid commands**: the firmware uses NimBLE-Arduino, which cannot answer a write with ATT error `0x80`. The write therefore always succeeds; an invalid command (unknown opcode, wrong arguments, not allowed in the current state) sets `error_code=3` in Status and Status is notified immediately. A subsequent valid command resets `error_code` to 0. The web app must observe Status after writes, not rely on a failed write.
+2. **Asynchronous execution**: commands are queued from the BLE task to the main loop and executed within a few ms. Status is notified after every command that changes state.
+3. **Automatic start**: in READY or SET_DONE, a valid rep detected without START_SET automatically starts a new set (`set_id` incremented, state SET_ACTIVE), as if START_SET had arrived. The device's A button toggles start/stop (`stop_reason` 0).
+4. **End of set**: for now the firmware never stops a set because of velocity loss (`stop_reason` 2 unused). Sets end by button, app command, or after `SET_IDLE_TIMEOUT_MS` (60 s) without reps (`stop_reason` 3).
+5. **Restart detection**: a Rep with a lower `set_id` may be the replay of the previous set (kept in RAM); only a Status with a `set_id` lower than the last known indicates a restart. The web app must run the detection on every Status.
+6. **CALIBRATING**: the state is not used yet; the device goes from IDLE to READY when it first detects that it is still (the valid-calibration flag, bit2, is then set).

@@ -40,7 +40,7 @@ test("sessionPath uses local start time", () => {
 });
 
 test("commitMessage", () => {
-  assert.equal(G.commitMessage(session()), "Sessione 2026-10-21 – serie 1");
+  assert.equal(G.commitMessage(session()), "Session 2026-10-21 – set 1");
 });
 
 test("utf8ToBase64 handles non-ASCII", () => {
@@ -107,17 +107,17 @@ test("putFile gives up after a second conflict", async () => {
   await assert.rejects(G.putFile({ fetch: f, repo: "o/r", token: "t", path: "p", content: "x", message: "m", sha: "s" }), { status: 409 });
 });
 
-test("putFile 401 -> Token non valido", async () => {
+test("putFile 401 -> Invalid token", async () => {
   const f = fakeFetch([res(401)]);
   await assert.rejects(G.putFile({ fetch: f, repo: "o/r", token: "bad", path: "p", content: "x", message: "m" }),
-    (e) => e.status === 401 && e.message === "Token non valido");
+    (e) => e.status === 401 && e.message === "Invalid token");
 });
 
 test("testConnection messages", async () => {
   const base = { repo: "o/r", token: "t" };
-  assert.deepEqual(await G.testConnection({ ...base, fetch: fakeFetch([res(200, { private: true })]) }), { ok: true, message: "OK, repo privato" });
-  assert.equal((await G.testConnection({ ...base, fetch: fakeFetch([res(401)]) })).message, "Token non valido");
-  assert.equal((await G.testConnection({ ...base, fetch: fakeFetch([res(404)]) })).message, "Repo non trovato o token senza accesso");
+  assert.deepEqual(await G.testConnection({ ...base, fetch: fakeFetch([res(200, { private: true })]) }), { ok: true, message: "OK, private repo" });
+  assert.equal((await G.testConnection({ ...base, fetch: fakeFetch([res(401)]) })).message, "Invalid token");
+  assert.equal((await G.testConnection({ ...base, fetch: fakeFetch([res(404)]) })).message, "Repo not found or token has no access");
   assert.equal((await G.testConnection({ ...base, fetch: fakeFetch([res(200, { private: false })]) })).ok, true);
   const net = await G.testConnection({ ...base, fetch: fakeFetch([new Error("offline")]) });
   assert.equal(net.ok, false);
@@ -150,7 +150,7 @@ test("uploader: create, keep sha, then update with it; outbox cleared", async ()
   assert.equal("sha" in f.calls[0].body, false);
   assert.equal(f.calls[1].body.sha, "s1");
   assert.equal(JSON.parse(storage.getItem(G.SHAS_KEY)).abc123, "s2");
-  assert.equal(f.calls[0].body.message, "Sessione 2026-10-21 – serie 1");
+  assert.equal(f.calls[0].body.message, "Session 2026-10-21 – set 1");
 });
 
 test("uploader: sha mismatch retries via GET", async () => {
@@ -165,16 +165,16 @@ test("uploader: 401 keeps the session in the outbox and reports the error", asyn
   const { up, storage, logs } = makeUploader([res(401)]);
   await up.notifySession("abc123");
   assert.deepEqual(G.outboxList(storage), ["abc123"]);
-  assert.equal(up.status().error, "Token non valido");
+  assert.equal(up.status().error, "Invalid token");
   assert.equal(up.status().pending, 1);
-  assert.match(logs[0], /Token non valido/);
+  assert.match(logs[0], /Invalid token/);
 });
 
 test("uploader: network failure keeps outbox, later flush clears it", async () => {
   const { up, storage } = makeUploader([new TypeError("Failed to fetch"), res(201, { content: { sha: "s" } })]);
   await up.notifySession("abc123");
   assert.deepEqual(G.outboxList(storage), ["abc123"]);
-  assert.match(up.status().error, /Rete non disponibile/);
+  assert.match(up.status().error, /Network unavailable/);
   await up.flush();
   assert.deepEqual(G.outboxList(storage), []);
   assert.equal(up.status().error, null);

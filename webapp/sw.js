@@ -1,5 +1,5 @@
 // Offline cache of the app shell (WA-70). Bump CACHE when any file below changes.
-const CACHE = "vbt-shell-v3";
+const CACHE = "vbt-shell-v4";
 const SHELL = [
   "./",
   "index.html",
@@ -17,7 +17,7 @@ const SHELL = [
   "js/lvprofile.js",
 ];
 
-// No skipWaiting() here: a new version waits until the user taps "Ricarica",
+// No skipWaiting() here: a new version waits until the user taps "Reload",
 // so the app never swaps code in the middle of a set (WA-72).
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

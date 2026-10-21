@@ -1,23 +1,23 @@
-// Metriche per ripetizione e per serie. Puro C++.
+// Per-rep and per-set metrics. Pure C++.
 #pragma once
 #include <stdint.h>
 #include "rep_detector.h"
 #include "types.h"
 
 struct RepMetrics {
-  bool valid = false;       // false = non e' una rep (ROM troppo piccolo, durata fuori limiti...)
-  bool lowQuality = false;  // drift corretto molto grande: stima dubbia
-  float mcvMs = 0;          // velocita' media concentrica, m/s
-  float peakMs = 0;         // velocita' di picco concentrica, m/s
-  float romM = 0;           // escursione della fase concentrica, m
-  uint32_t concMs = 0;      // durata fase concentrica
-  uint32_t repMs = 0;       // durata totale
+  bool valid = false;       // false = not a rep (ROM too small, duration out of bounds...)
+  bool lowQuality = false;  // very large corrected drift: doubtful estimate
+  float mcvMs = 0;          // mean concentric velocity, m/s
+  float peakMs = 0;         // peak concentric velocity, m/s
+  float romM = 0;           // range of motion of the concentric phase, m
+  uint32_t concMs = 0;      // concentric phase duration
+  uint32_t repMs = 0;       // total duration
 };
 
-// Integra il segmento (velocity.h), individua la fase concentrica (v > CONC_MIN_VEL_MS) e calcola le metriche.
+// Integrates the segment (velocity.h), finds the concentric phase (v > CONC_MIN_VEL_MS) and computes the metrics.
 RepMetrics computeRepMetrics(const RepSegment& seg, LiftType lift);
 
-// Stato accumulato di una serie.
+// Accumulated state of a set.
 class SetTracker {
  public:
   void start(uint8_t thresholdPct);
@@ -25,12 +25,12 @@ class SetTracker {
 
   struct Result {
     uint8_t repIndex = 0;
-    uint8_t velocityLossPct = 0;  // (best - mcv) / best * 100 sull'MCV della rep corrente
+    uint8_t velocityLossPct = 0;  // (best - mcv) / best * 100 on the MCV of the current rep
     bool isBest = false;
     bool thresholdExceeded = false;
   };
 
-  // Registra una rep valida e ritorna la perdita di velocita' rispetto alla migliore.
+  // Records a valid rep and returns the velocity loss relative to the best one.
   Result addRep(const RepMetrics& m);
 
   uint8_t repCount() const;

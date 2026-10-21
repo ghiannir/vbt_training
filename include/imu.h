@@ -1,46 +1,46 @@
-// Lettura del BMI270 tramite M5Unified. Dipende dall'hardware: non va nei test native.
+// BMI270 readout through M5Unified. Hardware-dependent: not for the native tests.
 #pragma once
 #include "types.h"
 
 class Imu {
  public:
-  // Inizializza l'IMU a IMU_RATE_HZ, +-16 g, +-2000 dps. Ritorna false se non risponde.
+  // Initializes the IMU at IMU_RATE_HZ, +-16 g, +-2000 dps. Returns false if it does not respond.
   bool begin();
 
-  // Se c'e' un nuovo campione lo scrive in out e ritorna true. Non blocca.
-  // Il timestamp (micros) e' preso il piu' vicino possibile alla lettura.
+  // If there is a new sample, writes it to out and returns true. Does not block.
+  // The timestamp (micros) is taken as close as possible to the read.
   bool read(ImuSample& out);
 
-  // Campioni persi dall'ultima chiamata (buchi nei timestamp > 1.5 periodi): per diagnostica.
+  // Samples lost since the last call (timestamp gaps > 1.5 periods): for diagnostics.
   uint32_t droppedSamples() const;
 
  private:
-  // I campioni arrivano dalla FIFO del BMI270 (frame da 12 byte: gyr poi acc), letti a blocchi.
+  // Samples come from the BMI270 FIFO (12-byte frames: gyr then acc), read in blocks.
   static constexpr int FRAME_BYTES = 12;
   static constexpr int BUF_FRAMES = 16;
 
   bool fillFromFifo();
 
-  uint8_t addr_ = 0;       // indirizzo I2C del BMI270 (0x68 o 0x69)
+  uint8_t addr_ = 0;       // I2C address of the BMI270 (0x68 or 0x69)
   uint8_t buf_[BUF_FRAMES * FRAME_BYTES];
   int bufFrames_ = 0, bufPos_ = 0;
-  uint32_t t0_us_ = 0;     // istante del primo campione
-  uint32_t count_ = 0;     // campioni emessi (o persi) da t0: il timestamp e' t0 + count * periodo
+  uint32_t t0_us_ = 0;     // time of the first sample
+  uint32_t count_ = 0;     // samples emitted (or lost) since t0: the timestamp is t0 + count * period
   mutable uint32_t dropped_ = 0;
 };
 
-// Risultato della calibrazione a riposo.
+// Result of the calibration at rest.
 struct Calibration {
   bool ok = false;
-  Vec3 gravityG;   // direzione media dell'accelerazione a riposo (g, assi sensore)
-  Vec3 gyroBias;   // offset medio del giroscopio (dps) da sottrarre
+  Vec3 gravityG;   // mean direction of acceleration at rest (g, sensor axes)
+  Vec3 gyroBias;   // mean gyroscope offset (dps) to subtract
 };
 
-// Accumula campioni a riposo per CALIB_MS e calcola la calibrazione. Puro C++ (nessun accesso hardware).
+// Accumulates samples at rest for CALIB_MS and computes the calibration. Pure C++ (no hardware access).
 class Calibrator {
  public:
   void start();
-  // Ritorna true quando ha finito (guarda result().ok per l'esito; fallisce se il dispositivo si muove).
+  // Returns true when done (check result().ok for the outcome; fails if the device moves).
   bool update(const ImuSample& s);
   uint8_t progressPct() const;
   const Calibration& result() const;

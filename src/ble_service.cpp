@@ -26,7 +26,7 @@ class ServerCallbacks : public NimBLEServerCallbacks {
   }
   void onDisconnect(NimBLEServer*, NimBLEConnInfo&, int) override {
     isConnected = false;
-    NimBLEDevice::startAdvertising();  // una sola connessione alla volta, poi si torna visibili
+    NimBLEDevice::startAdvertising();  // one connection at a time, then become visible again
   }
 };
 
@@ -36,7 +36,7 @@ class CommandCallbacks : public NimBLECharacteristicCallbacks {
     Command c{};
     c.len = v.length() > sizeof(c.data) ? sizeof(c.data) : v.length();
     memcpy(c.data, v.data(), c.len);
-    xQueueSend(commands, &c, 0);  // coda piena: il comando si perde, l'app ritenta
+    xQueueSend(commands, &c, 0);  // queue full: the command is lost, the app retries
   }
 };
 
@@ -56,7 +56,7 @@ void BleService::begin(CommandHandler onCommand) {
   commands = xQueueCreate(8, sizeof(Command));
 
   NimBLEDevice::init("");
-  const uint8_t* mac = NimBLEDevice::getAddress().getVal();  // little-endian: mac[0] e' l'ultimo byte
+  const uint8_t* mac = NimBLEDevice::getAddress().getVal();  // little-endian: mac[0] is the last byte
   snprintf(deviceName, sizeof deviceName, "%s%02X%02X", ble::NAME_PREFIX, mac[1], mac[0]);
   NimBLEDevice::setDeviceName(deviceName);
 
@@ -74,7 +74,7 @@ void BleService::begin(CommandHandler onCommand) {
   setAndNotify(summaryChr, ble::SummaryPayload{});
   svc->start();
 
-  // UUID a 128 bit nel pacchetto di advertising, nome nella scan response (precisazione 7)
+  // 128-bit UUID in the advertising packet, name in the scan response (clarification 7)
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
   NimBLEAdvertisementData advData, scanData;
   advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);

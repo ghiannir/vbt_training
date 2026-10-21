@@ -26,12 +26,12 @@ import {
 
 /** Delay before each automatic reconnection attempt (WA-13). */
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 8000];
-const COMMAND_REPLY_MS = 1500;  // attesa dello Status che il firmware manda dopo ogni comando
-const ERROR_BAD_COMMAND = 3;    // Status.error_code: comando non valido
+const COMMAND_REPLY_MS = 1500;  // wait for the Status the firmware sends after every command
+const ERROR_BAD_COMMAND = 3;    // Status.error_code: invalid command
 
 /** @param {string} why */
 function commandRejected(why) {
-  const err = new Error(`Comando non accettato dal sensore (${why})`);
+  const err = new Error(`Command not accepted by the sensor (${why})`);
   err.name = "CommandRejected";
   return err;
 }
@@ -123,7 +123,7 @@ export class VbtBle {
    * @returns {Promise<DeviceStatus>}
    */
   async connect() {
-    if (!VbtBle.isSupported()) throw new Error("Web Bluetooth non disponibile: apri la pagina in Bluefy.");
+    if (!VbtBle.isSupported()) throw new Error("Web Bluetooth not available: open the page in Bluefy.");
     this.#epoch++;
     this.#setState("connecting");
     let device;
@@ -146,7 +146,7 @@ export class VbtBle {
    * @returns {Promise<DeviceStatus>}
    */
   async reconnect() {
-    if (!this.#device) throw new Error("Nessun dispositivo da riconnettere.");
+    if (!this.#device) throw new Error("No device to reconnect to.");
     this.#epoch++;
     this.#setState("connecting");
     return this.#establishOrFail();
@@ -213,7 +213,7 @@ export class VbtBle {
     // Version check before trusting any other payload (WA-11).
     const first = decodeStatus(await chars.status.readValue());
     if (first.protoVersion !== PROTOCOL_VERSION) {
-      const err = new Error(`Firmware non compatibile (fw ${first.protoVersion}, app ${PROTOCOL_VERSION})`);
+      const err = new Error(`Incompatible firmware (fw ${first.protoVersion}, app ${PROTOCOL_VERSION})`);
       err.name = "FirmwareMismatch";
       throw err;
     }
@@ -343,7 +343,7 @@ export class VbtBle {
    */
   #requireChar(name) {
     const c = this.#chars?.[name];
-    if (!c) throw new Error("Sensore non connesso.");
+    if (!c) throw new Error("Sensor not connected.");
     return c;
   }
 
@@ -366,7 +366,7 @@ export class VbtBle {
         throw commandRejected(/** @type {any} */ (e)?.message ?? String(e));
       }
       const st = await reply.promise;
-      if (st?.errorCode === ERROR_BAD_COMMAND) throw commandRejected("non valido in questo stato");
+      if (st?.errorCode === ERROR_BAD_COMMAND) throw commandRejected("not valid in this state");
     });
   }
 

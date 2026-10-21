@@ -1,5 +1,5 @@
-// Filtro di Madgwick per IMU a 6 assi (S. Madgwick, 2010), in float.
-// Convenzione: v_terra = q * v_sensore * q^-1, con z terra verso l'alto.
+// Madgwick filter for 6-axis IMU (S. Madgwick, 2010), in float.
+// Convention: v_earth = q * v_sensor * q^-1, with earth z pointing up.
 #include "orientation.h"
 
 #include <math.h>
@@ -17,11 +17,11 @@ Madgwick::Madgwick(float beta) : beta_(beta) {}
 void Madgwick::reset() { q_ = Quaternion(); }
 
 void Madgwick::initFromGravity(const Vec3& a) {
-  // Rotazione piu' corta che porta la gravita' misurata sull'asse z terra.
+  // Shortest rotation that brings the measured gravity onto the earth z axis.
   float n = sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
   if (n < 1e-6f) return reset();
   float x = a.x / n, y = a.y / n, z = a.z / n;
-  if (z < -0.9999f) {  // sottosopra: rotazione di 180 gradi attorno a x
+  if (z < -0.9999f) {  // upside down: 180-degree rotation about x
     q_ = {0, 1, 0, 0};
     return;
   }
@@ -52,7 +52,7 @@ void Madgwick::update(const Vec3& acc, const Vec3& gyro, float dt) {
     float _8q1 = 8 * q1, _8q2 = 8 * q2;
     float q0q0 = q0 * q0, q1q1 = q1 * q1, q2q2 = q2 * q2, q3q3 = q3 * q3;
 
-    // Gradiente dell'errore tra gravita' stimata e misurata
+    // Gradient of the error between estimated and measured gravity
     float s0 = _4q0 * q2q2 + _2q2 * ax + _4q0 * q1q1 - _2q1 * ay;
     float s1 = _4q1 * q3q3 - _2q3 * ax + 4 * q0q0 * q1 - _2q0 * ay - _4q1 + _8q1 * q1q1 + _8q1 * q2q2 + _4q1 * az;
     float s2 = 4 * q0q0 * q2 + _2q0 * ax + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _8q2 * q2q2 + _4q2 * az;
@@ -78,7 +78,7 @@ void Madgwick::update(const Vec3& acc, const Vec3& gyro, float dt) {
 Quaternion Madgwick::quaternion() const { return q_; }
 
 Vec3 Madgwick::toEarth(const Vec3& v) const {
-  // v' = v + 2w (u x v) + 2 u x (u x v), con u = (x, y, z) del quaternione
+  // v' = v + 2w (u x v) + 2 u x (u x v), with u = (x, y, z) of the quaternion
   float w = q_.w, x = q_.x, y = q_.y, z = q_.z;
   float tx = 2 * (y * v.z - z * v.y);
   float ty = 2 * (z * v.x - x * v.z);

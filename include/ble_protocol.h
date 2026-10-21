@@ -1,11 +1,11 @@
-// Costanti del protocollo BLE. Specchio di docs/ble-protocol.md: se cambi uno, cambia l'altro.
+// BLE protocol constants. Mirror of docs/ble-protocol.md: if you change one, change the other.
 #pragma once
 #include <stdint.h>
 
 namespace ble {
 
 constexpr uint8_t PROTO_VERSION = 1;
-constexpr const char* NAME_PREFIX = "VBT-";  // nome completo: VBT-XXXX (ultimi 2 byte del MAC)
+constexpr const char* NAME_PREFIX = "VBT-";  // full name: VBT-XXXX (last 2 bytes of the MAC)
 
 constexpr const char* SERVICE_UUID = "b972a2b5-fe5d-481c-8293-5ad78d77ae5e";
 constexpr const char* REP_UUID     = "89826146-e413-4d2a-9c5b-7882e6d4973c";  // notify, read
@@ -15,7 +15,7 @@ constexpr const char* SUMMARY_UUID = "1bea91e2-4768-45a9-8498-f412cba0add8";  //
 constexpr const char* LIVE_UUID    = "8e3b1485-73ca-4dd1-b16a-0b3da91237f2";  // notify
 
 constexpr uint8_t ATT_ERR_BAD_COMMAND = 0x80;
-constexpr int REP_HISTORY = 64;  // rep tenute in RAM per REQUEST_REPS
+constexpr int REP_HISTORY = 64;  // reps kept in RAM for REQUEST_REPS
 
 enum class DeviceState : uint8_t { Idle = 0, Calibrating, Ready, SetActive, SetDone, Error };
 enum class ErrorCode : uint8_t { None = 0, Imu, CalibrationFailed, BadCommand };
@@ -25,7 +25,7 @@ enum class Opcode : uint8_t {
   SetBeep = 0x05, RequestReps = 0x06, RequestStatus = 0x07
 };
 
-// Bit di flags
+// Flag bits
 constexpr uint8_t REP_FLAG_THRESHOLD = 1 << 0;
 constexpr uint8_t REP_FLAG_BEST      = 1 << 1;
 constexpr uint8_t REP_FLAG_LOW_QUAL  = 1 << 2;
@@ -33,7 +33,7 @@ constexpr uint8_t ST_FLAG_CHARGING   = 1 << 0;
 constexpr uint8_t ST_FLAG_BEEP       = 1 << 1;
 constexpr uint8_t ST_FLAG_CALIB_OK   = 1 << 2;
 
-// Payload little-endian, senza padding: l'ESP32-S3 e' little-endian, quindi la struct si copia cosi' com'e'.
+// Little-endian payloads, no padding: the ESP32-S3 is little-endian, so the struct is copied as-is.
 #pragma pack(push, 1)
 struct RepPayload {  // 18 B
   uint8_t set_id, rep_index;
@@ -55,9 +55,9 @@ struct LivePayload {  // 4 B
 };
 #pragma pack(pop)
 
-static_assert(sizeof(RepPayload) == 18, "RepPayload deve essere 18 byte");
-static_assert(sizeof(StatusPayload) == 12, "StatusPayload deve essere 12 byte");
-static_assert(sizeof(SummaryPayload) == 12, "SummaryPayload deve essere 12 byte");
-static_assert(sizeof(LivePayload) == 4, "LivePayload deve essere 4 byte");
+static_assert(sizeof(RepPayload) == 18, "RepPayload must be 18 bytes");
+static_assert(sizeof(StatusPayload) == 12, "StatusPayload must be 12 bytes");
+static_assert(sizeof(SummaryPayload) == 12, "SummaryPayload must be 12 bytes");
+static_assert(sizeof(LivePayload) == 4, "LivePayload must be 4 bytes");
 
 }  // namespace ble

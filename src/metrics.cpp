@@ -12,12 +12,12 @@ float posBuf[RepDetector::MAX_SAMPLES];
 }  // namespace
 
 RepMetrics computeRepMetrics(const RepSegment& seg, LiftType lift) {
-  (void)lift;  // la ricerca della salita piu' ampia vale sia per squat/panca sia per stacco
+  (void)lift;  // the search for the widest rise works for both squat/bench and deadlift
   RepMetrics m;
   if (seg.n < 2) return m;
   IntegratedRep ir = integrateWithDriftCorrection(seg.aUp, seg.n, DT, velBuf, posBuf);
 
-  // Fase concentrica = la salita piu' ampia: dal punto piu' basso al piu' alto che lo segue.
+  // Concentric phase = the widest rise: from the lowest point to the highest one that follows it.
   size_t lowIdx = 0, bestLow = 0, bestHigh = 0;
   float bestRise = 0;
   for (size_t i = 1; i < seg.n; i++) {
@@ -34,8 +34,8 @@ RepMetrics computeRepMetrics(const RepSegment& seg, LiftType lift) {
   m.lowQuality = fabsf(ir.residualVel) > cfg::LOW_QUALITY_RESIDUAL_MS;
   if (bestHigh <= bestLow) return m;
 
-  // Dentro la salita: il picco di velocita', poi i bordi dove la velocita' scende sotto CONC_MIN_VEL_MS.
-  // Cosi' i tratti quasi fermi in fondo e in cima non abbassano la media.
+  // Inside the rise: the velocity peak, then the edges where velocity drops below CONC_MIN_VEL_MS.
+  // This way the nearly still stretches at the bottom and top do not lower the mean.
   size_t peakIdx = bestLow;
   for (size_t i = bestLow; i <= bestHigh; i++) {
     if (velBuf[i] > velBuf[peakIdx]) peakIdx = i;
@@ -68,7 +68,7 @@ SetTracker::Result SetTracker::addRep(const RepMetrics& m) {
   sum_ += m.mcvMs;
   r.isBest = m.mcvMs >= best_;
   if (r.isBest) best_ = m.mcvMs;
-  // Formula del contratto BLE: clamp(round((best - mcv) / best * 100), 0, 100), best include la rep corrente
+  // BLE contract formula: clamp(round((best - mcv) / best * 100), 0, 100), best includes the current rep
   float loss = best_ > 0 ? roundf((best_ - m.mcvMs) / best_ * 100.0f) : 0;
   r.velocityLossPct = (uint8_t)(loss < 0 ? 0 : loss > 100 ? 100 : loss);
   r.thresholdExceeded = threshold_ > 0 && r.velocityLossPct >= threshold_;

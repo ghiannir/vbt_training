@@ -20,12 +20,12 @@ IntegratedRep integrateWithDriftCorrection(const float* aUp, size_t n, float dt,
   r.n = n;
   if (n == 0) return r;
 
-  // Velocita' con la regola dei trapezi
+  // Velocity with the trapezoidal rule
   vel[0] = 0;
   for (size_t i = 1; i < n; i++) vel[i] = vel[i - 1] + 0.5f * (aUp[i - 1] + aUp[i]) * dt;
   r.residualVel = vel[n - 1];
 
-  // La rep finisce da fermo: la velocita' finale deve essere 0. Si toglie la deriva come rampa lineare.
+  // The rep ends at rest: the final velocity must be 0. Remove the drift as a linear ramp.
   if (n > 1) {
     for (size_t i = 0; i < n; i++) vel[i] -= r.residualVel * (float)i / (float)(n - 1);
   }

@@ -110,7 +110,7 @@ export const StopReason = Object.freeze({
  */
 function requireSize(view, size, name) {
   if (!view || view.byteLength < size) {
-    throw new Error(`Payload ${name} troppo corto: ${view ? view.byteLength : 0} < ${size} byte`);
+    throw new Error(`Payload ${name} too short: ${view ? view.byteLength : 0} < ${size} bytes`);
   }
 }
 
@@ -211,7 +211,7 @@ export function encodeTare() {
  */
 export function encodeSetThreshold(pct) {
   if (!Number.isInteger(pct) || (pct !== 0 && (pct < 5 || pct > 60))) {
-    throw new RangeError(`Soglia non valida: ${pct} (0 oppure 5..60)`);
+    throw new RangeError(`Invalid threshold: ${pct} (0 or 5..60)`);
   }
   return Uint8Array.of(Opcode.SET_THRESHOLD, pct);
 }
@@ -231,10 +231,10 @@ export function encodeSetBeep(on) {
  */
 export function encodeRequestReps(setId, fromRep) {
   if (!Number.isInteger(setId) || setId < 1 || setId > 255) {
-    throw new RangeError(`set_id non valido: ${setId}`);
+    throw new RangeError(`invalid set_id: ${setId}`);
   }
   if (!Number.isInteger(fromRep) || fromRep < 1 || fromRep > 255) {
-    throw new RangeError(`from_rep non valido: ${fromRep}`);
+    throw new RangeError(`invalid from_rep: ${fromRep}`);
   }
   return Uint8Array.of(Opcode.REQUEST_REPS, setId, fromRep);
 }

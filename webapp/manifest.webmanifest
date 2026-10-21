@@ -1,8 +1,8 @@
 {
   "name": "VBT Training",
   "short_name": "VBT",
-  "description": "Allenamento basato sulla velocita' con sensore su bilanciere",
-  "lang": "it",
+  "description": "Velocity-based training with a barbell-mounted sensor",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

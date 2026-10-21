@@ -1,11 +1,11 @@
-"""Registra il log grezzo del sensore VBT in un file CSV (passo 3).
+"""Records the raw VBT sensor log into a CSV file (step 3).
 
-Uso (dalla cartella del progetto):
-    uv run --with pyserial tools/record.py            # trova da solo la porta del sensore
-    uv run --with pyserial tools/record.py COM5       # oppure indicala
-Ctrl+C per fermare. Il file finisce in data/raw_AAAAMMGG_HHMMSS.csv.
-Le righe che iniziano con '#' sono marcatori (SET_START, SET_STOP, NOTE):
-in pandas leggi con pd.read_csv(path, comment="#").
+Usage (from the project folder):
+    uv run --with pyserial tools/record.py            # finds the sensor port by itself
+    uv run --with pyserial tools/record.py COM5       # or specify it
+Ctrl+C to stop. The file ends up in data/raw_YYYYMMDD_HHMMSS.csv.
+Lines starting with '#' are markers (SET_START, SET_STOP, NOTE):
+in pandas read with pd.read_csv(path, comment="#").
 """
 
 import sys
@@ -24,7 +24,7 @@ def find_port() -> str:
     for p in list_ports.comports():
         if p.vid == ESPRESSIF_VID:
             return p.device
-    sys.exit("Sensore non trovato: collegalo via USB o indica la porta (es. COM5).")
+    sys.exit("Sensor not found: connect it over USB or specify the port (e.g. COM5).")
 
 
 def main() -> None:
@@ -37,7 +37,7 @@ def main() -> None:
     started = time.time()
     with serial.Serial(port, 115200, timeout=0.5) as ser, open(path, "w", newline="\n") as f:
         f.write(COLUMNS + "\n")
-        print(f"Registro da {port} in {path}  (Ctrl+C per fermare)")
+        print(f"Recording from {port} to {path}  (Ctrl+C to stop)")
         buf = b""
         try:
             while True:
@@ -53,10 +53,10 @@ def main() -> None:
                     else:
                         samples += 1
                         if samples % 4000 == 0:
-                            print(f"  {samples} campioni, {time.time() - started:.0f} s")
+                            print(f"  {samples} samples, {time.time() - started:.0f} s")
         except KeyboardInterrupt:
             pass
-    print(f"Salvati {samples} campioni in {path}")
+    print(f"Saved {samples} samples to {path}")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-// Catena completa campione -> rep: fermo, orientamento, velocita', segmentazione, metriche.
-// Puro C++: la usano sia il firmware sia tools/replay.cpp sul PC.
+// Full sample -> rep chain: still detection, orientation, velocity, segmentation, metrics.
+// Pure C++: used by both the firmware and tools/replay.cpp on the PC.
 #pragma once
 #include "config.h"
 #include "metrics.h"
@@ -13,7 +13,7 @@ class VbtPipeline {
   VbtPipeline();
   void reset();
 
-  // Da chiamare per ogni campione IMU. Ritorna true quando e' finita una rep valida (vedi lastRep()).
+  // Call for every IMU sample. Returns true when a valid rep has finished (see lastRep()).
   bool update(const ImuSample& s);
 
   bool isStill() const { return still_.isStill(); }
@@ -29,6 +29,6 @@ class VbtPipeline {
   RepDetector reps_;
   LiveVelocity live_;
   RepMetrics rep_;
-  float gravityG_ = 1.0f;  // modulo di |acc| a riposo, aggiornato a ogni fermo
+  float gravityG_ = 1.0f;  // magnitude of |acc| at rest, updated at every still period
   bool initialized_ = false;
 };

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Compila tools/replay.cpp con lo stesso codice dell'algoritmo del firmware.
-# Usa zig come compilatore C++ tramite uv (nessuna installazione nel sistema).
+# Builds tools/replay.cpp with the same algorithm code as the firmware.
+# Uses zig as the C++ compiler through uv (nothing installed system-wide).
 cd "$(dirname "$0")/.." || exit 1
 mkdir -p .pio/replay
 uv run --with ziglang python -m ziglang c++ -std=c++17 -O2 -Iinclude \

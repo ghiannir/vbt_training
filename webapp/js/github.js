@@ -1,5 +1,5 @@
 // @ts-check
-// "Salvataggio su GitHub": after every set the whole current session is uploaded as one
+// "GitHub sync": after every set the whole current session is uploaded as one
 // JSON file to a private repo through the GitHub Contents API. Fire-and-forget: the
 // live workout UI never waits for it. Failed uploads stay in an outbox (session ids
 // only; the data lives in IndexedDB) and are retried later.
@@ -46,7 +46,7 @@ export function sessionPath(session) {
  * @returns {string}
  */
 export function commitMessage(session) {
-  return `Sessione ${localDate(session.startedAt)} – serie ${session.sets.length}`;
+  return `Session ${localDate(session.startedAt)} – set ${session.sets.length}`;
 }
 
 /**
@@ -80,17 +80,17 @@ export function isValidRepo(repo) {
 }
 
 /**
- * Italian message for an HTTP status.
+ * User-facing message for an HTTP status.
  * @param {number} status
  * @returns {string}
  */
 export function describeStatus(status) {
-  if (status === 401) return "Token non valido";
-  if (status === 403) return "Accesso negato (permessi del token o limite di richieste)";
-  if (status === 404) return "Repo non trovato o token senza accesso";
-  if (status === 409 || status === 422) return "Conflitto sul file (sha)";
-  if (status >= 500) return `Errore di GitHub (${status})`;
-  return `Errore HTTP ${status}`;
+  if (status === 401) return "Invalid token";
+  if (status === 403) return "Access denied (token permissions or rate limit)";
+  if (status === 404) return "Repo not found or token has no access";
+  if (status === 409 || status === 422) return "File conflict (sha)";
+  if (status >= 500) return `GitHub error (${status})`;
+  return `HTTP error ${status}`;
 }
 
 export class GithubError extends Error {
@@ -184,7 +184,7 @@ async function call(fetchFn, url, init) {
   try {
     return await fetchFn(url, init);
   } catch (e) {
-    throw new GithubError(`Rete non disponibile: ${/** @type {any} */ (e)?.message ?? e}`, 0);
+    throw new GithubError(`Network unavailable: ${/** @type {any} */ (e)?.message ?? e}`, 0);
   }
 }
 
@@ -194,15 +194,15 @@ async function call(fetchFn, url, init) {
  * @returns {Promise<{ ok: boolean, message: string }>}
  */
 export async function testConnection({ fetch: fetchFn, repo, token }) {
-  if (!isValidRepo(repo)) return { ok: false, message: "Repo non valido: usa il formato utente/nome" };
-  if (!token) return { ok: false, message: "Token mancante" };
+  if (!isValidRepo(repo)) return { ok: false, message: "Invalid repo: use the user/name format" };
+  if (!token) return { ok: false, message: "Token missing" };
   try {
     const res = await call(fetchFn, `${API}/repos/${repo}`, { headers: headers(token) });
     if (!res.ok) return { ok: false, message: describeStatus(res.status) };
     const info = await res.json().catch(() => ({}));
     return info.private === false
-      ? { ok: true, message: "OK, ma il repo e' pubblico: i dati sarebbero visibili a tutti" }
-      : { ok: true, message: "OK, repo privato" };
+      ? { ok: true, message: "OK, but the repo is public: the data would be visible to everyone" }
+      : { ok: true, message: "OK, private repo" };
   } catch (e) {
     return { ok: false, message: /** @type {any} */ (e).message };
   }
@@ -240,7 +240,7 @@ export async function putFile({ fetch: fetchFn, repo, token, path, content, mess
   if (!res.ok) throw new GithubError(describeStatus(res.status), res.status);
   const info = await res.json().catch(() => ({}));
   const newSha = info?.content?.sha;
-  if (typeof newSha !== "string") throw new GithubError("Risposta di GitHub inattesa");
+  if (typeof newSha !== "string") throw new GithubError("Unexpected GitHub response");
   return newSha;
 }
 

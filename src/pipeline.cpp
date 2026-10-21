@@ -6,7 +6,7 @@
 
 namespace {
 constexpr float DT = 1.0f / cfg::IMU_RATE_HZ;
-constexpr float BETA_STILL = 0.5f;  // da fermo ci si fida dell'accelerometro per riallineare la verticale
+constexpr float BETA_STILL = 0.5f;  // when still, trust the accelerometer to realign the vertical
 constexpr float GRAVITY_EMA = 0.01f;
 
 float norm(const Vec3& v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }

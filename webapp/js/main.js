@@ -31,7 +31,7 @@ export async function main() {
   /** @type {import("./storage.js").Store|null} Demo data is never persisted. */
   let store = null;
   if (!demo) {
-    try { store = await openStore(); } catch (e) { ui.log(`Archivio non disponibile: ${errText(e)}`, "error"); }
+    try { store = await openStore(); } catch (e) { ui.log(`Storage unavailable: ${errText(e)}`, "error"); }
   }
 
   const tracker = new SessionTracker({
@@ -58,10 +58,10 @@ export async function main() {
   /** @param {unknown} e */
   function reportError(e) {
     const err = /** @type {any} */ (e);
-    if (err?.name === "NotFoundError") { ui.log("Nessun dispositivo selezionato."); return; }
+    if (err?.name === "NotFoundError") { ui.log("No device selected."); return; }
     let msg = errText(e);
-    if (err?.name === "NetworkError") msg = "Connessione fallita: il sensore e' spento, lontano o collegato a un altro telefono.";
-    else if (err?.name === "SecurityError") msg = "Bluetooth non consentito da questa pagina.";
+    if (err?.name === "NetworkError") msg = "Connection failed: the sensor is off, out of range or connected to another phone.";
+    else if (err?.name === "SecurityError") msg = "Bluetooth not allowed from this page.";
     ui.log(msg, "error");
   }
 
@@ -115,7 +115,7 @@ export async function main() {
         try {
           await store.putSession(s);
           if (upload) uploadSession(s.id);
-        } catch (e) { ui.log(`Salvataggio fallito: ${errText(e)}`, "error"); }
+        } catch (e) { ui.log(`Save failed: ${errText(e)}`, "error"); }
       }
       saving = false;
     })();
@@ -135,7 +135,7 @@ export async function main() {
   }
 
   async function refreshHistory() {
-    try { ui.showHistory(await allSessions()); } catch (e) { ui.log(`Storico: ${errText(e)}`, "error"); }
+    try { ui.showHistory(await allSessions()); } catch (e) { ui.log(`History: ${errText(e)}`, "error"); }
   }
 
   async function refreshProfile() {
@@ -158,7 +158,7 @@ export async function main() {
         ui.log(errText(e));
       }
     } catch (e) {
-      ui.log(`Profilo: ${errText(e)}`, "error");
+      ui.log(`Profile: ${errText(e)}`, "error");
     }
   }
 
@@ -173,7 +173,7 @@ export async function main() {
       const top = Math.max(0, ...set.reps.map((r) => r.repIndex), expected ?? 0);
       if (set.reps.length < top && !set.lostReps) {
         tracker.markLost(set);
-        ui.log(`Serie con ripetizioni mancanti (${set.reps.length}/${top}).`, "warn");
+        ui.log(`Set with missing reps (${set.reps.length}/${top}).`, "warn");
         scheduleSave(set.endedAt !== null);
         if (set === lastSet()) renderLastSet();
       }
@@ -190,16 +190,16 @@ export async function main() {
   ble.on("connection", (state, detail) => {
     /** @type {{ message?: string, canReconnect?: boolean }} */
     const info = {};
-    if (state === "reconnecting" && detail && detail !== "0") info.message = `tentativo ${detail}/${MAX_RECONNECT_ATTEMPTS}`;
+    if (state === "reconnecting" && detail && detail !== "0") info.message = `attempt ${detail}/${MAX_RECONNECT_ATTEMPTS}`;
     if (state === "disconnected" && detail === "can-reconnect") info.canReconnect = true;
     if (demo && state === "connected") info.message = "demo";
     ui.showConnection(state, info);
     if (state === "connected") {
       ui.setWakeLock(true);
-      ble.setThreshold(settings.thresholdPct).catch((e) => ui.log(`Soglia non inviata: ${errText(e)}`, "warn"));
+      ble.setThreshold(settings.thresholdPct).catch((e) => ui.log(`Threshold not sent: ${errText(e)}`, "warn"));
     } else if (state === "disconnected") {
       ui.setWakeLock(false);
-      if (info.canReconnect && !demo) ui.log("Connessione persa. Tocca Riconnetti.", "warn");
+      if (info.canReconnect && !demo) ui.log("Connection lost. Tap Reconnect.", "warn");
     }
   });
 
@@ -207,7 +207,7 @@ export async function main() {
     ui.showStatus(st);
     if (st.setId > 0) {
       const reboot = tracker.noteDeviceSetId(st.setId);
-      if (reboot) { ui.log("Sensore riavviato: nuova sequenza di serie."); renderLastSet(); }
+      if (reboot) { ui.log("Sensor restarted: new set sequence."); renderLastSet(); }
     }
     const open = tracker.currentSet;
     if (st.state === State.SET_ACTIVE) {
@@ -224,7 +224,7 @@ export async function main() {
     }
     if (tareWaiting && (st.state === State.READY || st.state === State.ERROR)) {
       tareWaiting = false;
-      ui.toast(st.state === State.READY ? "Tara completata" : "Tara fallita: tieni fermo il sensore e riprova");
+      ui.toast(st.state === State.READY ? "Tare complete" : "Tare failed: hold the sensor still and try again");
     }
   });
 
@@ -241,7 +241,7 @@ export async function main() {
     if (set.reps.length < sum.repCount) {
       const top = Math.max(0, ...set.reps.map((r) => r.repIndex));
       const missing = set.reps.length === top ? top + 1 : 1;
-      ble.requestReps(sum.setId, missing).catch((e) => ui.log(`Richiesta rep: ${errText(e)}`, "warn"));
+      ble.requestReps(sum.setId, missing).catch((e) => ui.log(`Rep request: ${errText(e)}`, "warn"));
       verifyLater(set, sum.repCount);
     }
     scheduleSave(set.endedAt !== null);
@@ -250,10 +250,10 @@ export async function main() {
 
   ble.on("rep", (rep) => {
     const res = tracker.addRep(rep);
-    if (res.reboot) ui.log("Sensore riavviato: nuova sequenza di serie.");
+    if (res.reboot) ui.log("Sensor restarted: new set sequence.");
     if (res.gapFrom != null) {
-      ui.log(`Ripetizione mancante (da #${res.gapFrom}): richiesta al sensore.`, "warn");
-      ble.requestReps(rep.setId, res.gapFrom).catch((e) => ui.log(`Richiesta rep: ${errText(e)}`, "warn"));
+      ui.log(`Missing rep (from #${res.gapFrom}): requested from the sensor.`, "warn");
+      ble.requestReps(rep.setId, res.gapFrom).catch((e) => ui.log(`Rep request: ${errText(e)}`, "warn"));
       verifyLater(res.set);
     }
     if (!res.added) return;
@@ -276,7 +276,7 @@ export async function main() {
     onStopSet: () => { ble.stopSet().catch(reportError); },
     onTare: () => {
       tareWaiting = true;
-      ble.tare().then(() => ui.toast("Tara in corso: tieni fermo il sensore")).catch((e) => {
+      ble.tare().then(() => ui.toast("Taring: hold the sensor still")).catch((e) => {
         tareWaiting = false;
         reportError(e);
       });
@@ -303,7 +303,7 @@ export async function main() {
       settings = { ...settings, thresholdPct: pct };
       saveSettings({ thresholdPct: pct });
       tracker.setThreshold(pct);
-      if (ble.state === "connected") ble.setThreshold(pct).catch((e) => ui.log(`Soglia non inviata: ${errText(e)}`, "warn"));
+      if (ble.state === "connected") ble.setThreshold(pct).catch((e) => ui.log(`Threshold not sent: ${errText(e)}`, "warn"));
       renderLastSet();
     },
     onSoundChange: (on) => { settings = { ...settings, soundOn: on }; saveSettings({ soundOn: on }); },
@@ -316,7 +316,7 @@ export async function main() {
         if (saved) uploadSession(ended.id);
       }
       ui.showSet(null);
-      ui.toast("Allenamento concluso");
+      ui.toast("Workout finished");
       refreshHistory();
     },
     onExport: async (format) => {
@@ -332,22 +332,22 @@ export async function main() {
           saveSettings({ lastBackupAt: settings.lastBackupAt });
           ui.hideBanner("backup");
         }
-      } catch (e) { ui.log(`Esportazione fallita: ${errText(e)}`, "error"); }
+      } catch (e) { ui.log(`Export failed: ${errText(e)}`, "error"); }
     },
     onImport: async (file) => {
-      if (!store) { ui.toast("Importazione non disponibile in modalita demo"); return; }
+      if (!store) { ui.toast("Import not available in demo mode"); return; }
       try {
         const res = await store.importBackup(JSON.parse(await file.text()));
-        ui.toast(`Importate ${res.sessionsAdded} sessioni (${res.sessionsSkipped} gia presenti)`);
+        ui.toast(`Imported ${res.sessionsAdded} sessions (${res.sessionsSkipped} already present)`);
         refreshHistory();
-      } catch (e) { ui.log(`Importazione fallita: ${errText(e)}`, "error"); }
+      } catch (e) { ui.log(`Import failed: ${errText(e)}`, "error"); }
     },
     onDeleteSession: async (id) => {
       try {
         if (tracker.session.id === id) tracker.endSession();
         await store?.deleteSession(id);
         await refreshHistory();
-      } catch (e) { ui.log(`Eliminazione fallita: ${errText(e)}`, "error"); }
+      } catch (e) { ui.log(`Delete failed: ${errText(e)}`, "error"); }
     },
     onViewChange: (viewId) => {
       if (viewId === "view-history") refreshHistory();
@@ -365,11 +365,11 @@ export async function main() {
       if (github) { ui.showGithubStatus(github.status()); github.flush(); }
     },
     onGithubTest: async () => {
-      if (demo) return { ok: false, message: "Non disponibile in modalita demo" };
+      if (demo) return { ok: false, message: "Not available in demo mode" };
       return testConnection({ fetch: (...args) => fetch(...args), repo: settings.githubRepo, token: settings.githubToken });
     },
     onResume: () => {
-      if (ble.state === "connected") /** @type {any} */ (ble).resync?.().catch((e) => ui.log(`Risincronizzazione: ${errText(e)}`, "warn"));
+      if (ble.state === "connected") /** @type {any} */ (ble).resync?.().catch((e) => ui.log(`Resync: ${errText(e)}`, "warn"));
     },
   });
 
@@ -394,7 +394,7 @@ export async function main() {
         const days = settings.lastBackupAt ? Math.floor((Date.now() - settings.lastBackupAt) / DAY_MS) : null;
         if (days == null || days >= BACKUP_REMINDER_DAYS) ui.showBackupReminder(days);
       }
-    } catch (e) { ui.log(`Ripristino bozza fallito: ${errText(e)}`, "warn"); }
+    } catch (e) { ui.log(`Draft restore failed: ${errText(e)}`, "warn"); }
   }
 
   if (github) {
@@ -433,6 +433,6 @@ export async function registerServiceWorker() {
       });
     });
   } catch (e) {
-    ui.log(`Service worker non registrato: ${/** @type {any} */ (e)?.message ?? e}`, "warn");
+    ui.log(`Service worker not registered: ${/** @type {any} */ (e)?.message ?? e}`, "warn");
   }
 }

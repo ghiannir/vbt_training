@@ -1,7 +1,7 @@
-// Rigioca l'algoritmo del firmware sul PC.
-//   replay --synthetic        squat finto da 0,5 m: controlla che ROM e MCV tornino
-//   replay data/raw_X.csv     stampa le rep trovate in una registrazione (passo 3)
-// Compilazione: vedi tools/build_replay.sh
+// Replays the firmware algorithm on the PC.
+//   replay --synthetic        fake 0.5 m squat: checks that ROM and MCV come out right
+//   replay data/raw_X.csv     prints the reps found in a recording (step 3)
+// Build: see tools/build_replay.sh
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdio.h>
@@ -14,19 +14,19 @@
 
 static int reportRep(const VbtPipeline& p, uint32_t t_us, int n) {
   const RepMetrics& m = p.lastRep();
-  printf("rep %2d  t=%7.2f s  MCV %.3f m/s  picco %.3f m/s  ROM %.3f m  conc %4u ms  rep %4u ms%s\n", n,
+  printf("rep %2d  t=%7.2f s  MCV %.3f m/s  peak %.3f m/s  ROM %.3f m  conc %4u ms  rep %4u ms%s\n", n,
          t_us / 1e6, m.mcvMs, m.peakMs, m.romM, (unsigned)m.concMs, (unsigned)m.repMs,
-         m.lowQuality ? "  [bassa qualita']" : "");
+         m.lowQuality ? "  [low quality]" : "");
   return n + 1;
 }
 
-// Squat finto: fermo, discesa di 0,5 m in 1,2 s, salita di 0,5 m in 0,8 s, fermo. Ripetuto 3 volte.
+// Fake squat: still, 0.5 m descent in 1.2 s, 0.5 m ascent in 0.8 s, still. Repeated 3 times.
 static int synthetic() {
   const float dt = 1.0f / cfg::IMU_RATE_HZ;
   const float rom = 0.5f, down = 1.2f, up = 0.8f, rest = 1.0f;
   std::vector<float> a;
   auto still = [&](float s) { for (int i = 0; i < s / dt; i++) a.push_back(0); };
-  // Profilo di posizione a coseno: z(t) = -rom/2 (1 - cos(pi t / T)), quindi a(t) = -rom/2 (pi/T)^2 cos(pi t / T)
+  // Cosine position profile: z(t) = -rom/2 (1 - cos(pi t / T)), hence a(t) = -rom/2 (pi/T)^2 cos(pi t / T)
   auto move = [&](float T, float sign) {
     for (int i = 0; i < T / dt; i++) a.push_back(sign * rom / 2 * powf(M_PI / T, 2) * cosf(M_PI * i * dt / T));
   };
@@ -43,11 +43,11 @@ static int synthetic() {
   for (float az : a) {
     ImuSample s;
     s.t_us = t;
-    s.acc = {0.01f, -0.02f, 1.015f * (1 + az / cfg::GRAVITY_MS2)};  // errore di scala come il sensore vero
+    s.acc = {0.01f, -0.02f, 1.015f * (1 + az / cfg::GRAVITY_MS2)};  // scale error like the real sensor
     if (p.update(s)) n = reportRep(p, t, n);
     t += 1000000 / cfg::IMU_RATE_HZ;
   }
-  printf("atteso: 3 rep, ROM 0.500 m, MCV %.3f m/s, picco %.3f m/s\n", rom / up, rom / 2 * M_PI / up);
+  printf("expected: 3 reps, ROM 0.500 m, MCV %.3f m/s, peak %.3f m/s\n", rom / up, rom / 2 * M_PI / up);
   return n == 4 ? 0 : 1;
 }
 
@@ -74,13 +74,13 @@ static int replayCsv(const char* path) {
     if (p.update(s)) n = reportRep(p, s.t_us, n);
   }
   fclose(f);
-  printf("%d rep trovate\n", n - 1);
+  printf("%d reps found\n", n - 1);
   return 0;
 }
 
 int main(int argc, char** argv) {
   if (argc > 1 && strcmp(argv[1], "--synthetic") == 0) return synthetic();
   if (argc > 1) return replayCsv(argv[1]);
-  fprintf(stderr, "uso: replay --synthetic | replay file.csv\n");
+  fprintf(stderr, "usage: replay --synthetic | replay file.csv\n");
   return 2;
 }

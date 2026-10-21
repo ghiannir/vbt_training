@@ -1,28 +1,28 @@
-// Integrazione dell'accelerazione verticale con correzione ZUPT. Puro C++.
+// Integration of the vertical acceleration with ZUPT correction. Pure C++.
 #pragma once
 #include <stddef.h>
 
-// Stima "live" durante il movimento: integra e basta, nessuna correzione.
-// Serve solo per l'indicatore sul display; si azzera quando il sensore e' fermo (ZUPT).
+// "Live" estimate during movement: just integrates, no correction.
+// Used only for the display indicator; resets to zero when the sensor is still (ZUPT).
 class LiveVelocity {
  public:
   void reset();
-  // aUp in m/s^2 (gravita' gia' tolta), still = sensore fermo. Ritorna la velocita' in m/s.
+  // aUp in m/s^2 (gravity already removed), still = sensor at rest. Returns the velocity in m/s.
   float update(float aUp, float dt, bool still);
   float velocity() const;
-  float height() const;  // spostamento verticale dall'ultimo reset, in m
+  float height() const;  // vertical displacement since the last reset, in m
 
  private:
   float v_ = 0, z_ = 0;
 };
 
-// Risultato dell'integrazione di una rep gia' conclusa.
+// Result of integrating an already finished rep.
 struct IntegratedRep {
   size_t n = 0;
-  float residualVel = 0;  // velocita' finale prima della correzione (m/s): misura del drift
+  float residualVel = 0;  // final velocity before correction (m/s): a measure of the drift
 };
 
-// Integra aUp[0..n) (m/s^2, passo dt) in vel[] (m/s) e pos[] (m), partendo da v=0 e z=0.
-// Poi toglie la deriva lineare in modo che vel[n-1] = 0 (si assume che la rep finisca da fermo).
-// vel e pos devono avere spazio per n elementi.
+// Integrates aUp[0..n) (m/s^2, step dt) into vel[] (m/s) and pos[] (m), starting from v=0 and z=0.
+// Then removes the linear drift so that vel[n-1] = 0 (the rep is assumed to end at rest).
+// vel and pos must have room for n elements.
 IntegratedRep integrateWithDriftCorrection(const float* aUp, size_t n, float dt, float* vel, float* pos);
